@@ -53,7 +53,7 @@ public class LogIndexer<A> implements LogAccess<A> {
 	
 	// The number of rows found in the file
 	private volatile int num_lines = 1;
-	private volatile long last_index_size = 0;
+	private volatile long last_file_length = 0;
 
 	private final AtomicBoolean indexer_scheduled;
 
@@ -464,7 +464,7 @@ public class LogIndexer<A> implements LogAccess<A> {
 				}
 				
 				num_lines = line;
-				last_index_size = in.position();
+				last_file_length = file.length();
 
 //				System.out.println( "  Found " + num_lines + " lines");
 //				System.out.println( "  Map size: " + row_index_map.size() );
@@ -546,8 +546,8 @@ public class LogIndexer<A> implements LogAccess<A> {
 		public void run() {
 			long file_length = file.length();
 			
-			long last_index_size = LogIndexer.this.last_index_size;
-			if ( file_length == last_index_size ) {
+			long last_file_length = LogIndexer.this.last_file_length;
+			if ( file_length == last_file_length ) {
 //				System.out.println( "File unchanged" );
 				return;
 			}
@@ -555,13 +555,13 @@ public class LogIndexer<A> implements LogAccess<A> {
 			// If the file size has decreased, the file has rotated. Do a full index.
 			int starting_line;
 			long starting_position;
-			if ( file_length < last_index_size ) {
+			if ( file_length < last_file_length ) {
 				starting_line = 0;
 				starting_position = 0;
 			}
 			else {
 				starting_line = num_lines;
-				starting_position = last_index_size;
+				starting_position = last_file_length;
 			}
 
 			if ( indexer_scheduled.compareAndSet( false, true ) ) {

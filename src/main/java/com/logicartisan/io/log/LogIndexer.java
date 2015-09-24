@@ -483,10 +483,10 @@ public class LogIndexer<A> implements LogAccess<A> {
 				IOKit.close( in );
 				IOKit.close( root_stream );
 
+				indexer_scheduled.set( false );
+
 				//noinspection unchecked
 				listeners.dispatch().indexingFinished( attachment, num_lines );
-
-				indexer_scheduled.set( false );
 			}
 		}
 		
@@ -544,6 +544,9 @@ public class LogIndexer<A> implements LogAccess<A> {
 	private class FileChangeChecker implements Runnable {
 		@Override
 		public void run() {
+			// Don't check for a change if we're currently indexing
+			if ( indexer_scheduled.get() ) return;
+
 			long file_length = file.length();
 			
 			long last_file_length = LogIndexer.this.last_file_length;

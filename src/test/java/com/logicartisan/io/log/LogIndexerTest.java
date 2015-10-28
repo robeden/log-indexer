@@ -6,11 +6,6 @@
 package com.logicartisan.io.log;
 
 import com.starlight.IOKit;
-import com.starlight.io.log.LogIndexListener;
-import com.starlight.io.log.LogIndexer;
-import com.starlight.io.log.SearchListener;
-import com.starlight.io.log.SearchMatch;
-import com.starlight.io.log.SearchParams;
 import com.starlight.thread.ThreadKit;
 import junit.framework.TestCase;
 
@@ -18,7 +13,9 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -117,7 +114,7 @@ public class LogIndexerTest extends TestCase {
 			new SearchMatch( 4, 0, 3 ) };
 		SearchMatch[] second = new SearchMatch[]{ new SearchMatch( 6, 12, 3 ) };
 
-		doTestSearching( com.starlight.io.log.SearchParams.createSimple( "hat", true ), first, second,
+		doTestSearching( SearchParams.createSimple( "hat", true ), first, second,
 			1000, false );
 	}
 
@@ -133,7 +130,7 @@ public class LogIndexerTest extends TestCase {
 			new SearchMatch( 4, 0, 3 ) };
 		SearchMatch[] second = new SearchMatch[]{ new SearchMatch( 6, 12, 3 ) };
 
-		doTestSearching( com.starlight.io.log.SearchParams.createSimple( "hat", false ), first, second,
+		doTestSearching( SearchParams.createSimple( "hat", false ), first, second,
 			1000, false );
 	}
 
@@ -146,8 +143,7 @@ public class LogIndexerTest extends TestCase {
 			new SearchMatch( 4, 0, 3 ) };
 		SearchMatch[] second = new SearchMatch[]{ new SearchMatch( 6, 12, 3 ) };
 
-		doTestSearching( com.starlight.io.log.SearchParams
-			.createRegex( Pattern.compile( "hat" ) ),
+		doTestSearching( SearchParams.createRegex( Pattern.compile( "hat" ) ),
 			first, second, 1000, false );
 	}
 
@@ -156,7 +152,7 @@ public class LogIndexerTest extends TestCase {
 			new SearchMatch( 1, 0, 3 ),
 			new SearchMatch( 1, 9, 3 ) };
 
-		doTestSearching( com.starlight.io.log.SearchParams.createSimple( "hat", false ), first, null,
+		doTestSearching( SearchParams.createSimple( "hat", false ), first, null,
 			2, true );
 	}
 
@@ -190,8 +186,10 @@ public class LogIndexerTest extends TestCase {
 		final AtomicReference<CountDownLatch> matches_latch = new AtomicReference<>(
 			new CountDownLatch( 1 ) );
 		final CountDownLatch finished_latch = new CountDownLatch( 1 );
-		final AtomicReference<SearchMatch[]> expect_match = new AtomicReference<>();
-		expect_match.set( first_match_set );
+		final List<SearchMatch> expected_matches = new ArrayList<>( 10 );
+		expected_matches.addAll( Arrays.asList( first_match_set ) );
+		System.out.println( "Expecting first: " + expected_matches );
+
 		SearchListener listener = new SearchListener() {
 			@Override
 			public void searchScanFinished( int search_id, boolean exceed_max_matches ) {
@@ -199,9 +197,12 @@ public class LogIndexerTest extends TestCase {
 //					finished_latch.get() );
 				System.out.println( "searchScanFinished(" + search_id + "," +
 					exceed_max_matches + ")" );
-				if ( finished_latch.getCount() == 0 ) {
-//					System.err.println( "Duplicate call to searchScanFinished" );
-//					has_failure.set( true );
+
+				if ( !expected_matches.isEmpty() ) {
+					System.err.println( "Some expected matches did not occur: " +
+						expected_matches );
+					has_failure.set( true );
+					return;
 				}
 
 				if ( should_exceed_max_matches != exceed_max_matches ) {
@@ -218,20 +219,26 @@ public class LogIndexerTest extends TestCase {
 			public void searchTermMatches( int search_id, SearchMatch... matches ) {
 				System.out.println( "searchTermMatches(" + search_id + "," +
 					Arrays.toString( matches ) + ")" );
-				if ( matches_latch.get().getCount() == 0 ) {
+
+				if ( expected_matches.isEmpty() ) {
 					System.err.println( "Unexpected call to searchTermMatches: " +
 						Arrays.toString( matches ) );
 					has_failure.set( true );
+					return;
 				}
-				if ( Arrays.equals( expect_match.get(), matches ) ) {
-					matches_latch.get().countDown();
-				}
-				else {
-					System.err.println( "Unexpected array contents in searchTermMatches:" );
-					for( SearchMatch match : matches ) {
-						System.err.println( "  " + match );
+
+				for( SearchMatch match : matches ) {
+					if ( !expected_matches.remove( match ) ) {
+						System.err.println( "Unexpected match in searchTermMatches: " +
+							match + "  All returned matches: " +
+							Arrays.toString( matches ) + "  Still expecting: " +
+							expected_matches );
+						has_failure.set( true );
 					}
-					has_failure.set( true );
+				}
+
+				if ( expected_matches.isEmpty() ) {
+					matches_latch.get().countDown();
 				}
 			}
 		};
@@ -242,10 +249,13 @@ public class LogIndexerTest extends TestCase {
 		assertTrue( finished_latch.await( 5, TimeUnit.SECONDS ) );
 		assertFalse( has_failure.get() );
 
+//		assertTrue( "Still in expecting list: " + expected_matches,
+//			expected_matches.isEmpty() );
 
 		// Add a line - non matching
 		// NOTE: Latches are already counted down, so another call would be a failure
 
+		System.out.println( "Writing additional lines to test file..." );
 		writeLines( "This shouldn't match" );
 
 		ThreadKit.sleep( 2000 );
@@ -256,8 +266,12 @@ public class LogIndexerTest extends TestCase {
 
 		// NOTE: don't expect another searchScanFinished call, so not changing latch
 		matches_latch.set( new CountDownLatch( 1 ) );
-		expect_match.set( second_match_set );
+		if ( second_match_set != null ) {
+			expected_matches.addAll( Arrays.asList( second_match_set ) );
+		}
+		System.out.println( "Expecting second: " + expected_matches );
 
+		System.out.println( "Writing additional lines to test file..." );
 		writeLines( "I can haz a hat" );
 		//           012345678901234
 		//           0         1

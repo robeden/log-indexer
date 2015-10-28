@@ -1,10 +1,8 @@
 package com.logicartisan.io.log;
 
 import com.starlight.listeners.ListenerSupport;
-import com.starlight.listeners.ListenerSupportFactory;
 import com.starlight.listeners.MessageDeliveryErrorHandler;
 import com.starlight.thread.SharedThreadPool;
-import gnu.trove.procedure.TObjectProcedure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,6 +11,8 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,9 +40,12 @@ class Searcher<A>
 	private final ListenerSupport<SearchListener,?> listeners;
 
 	private final AtomicBoolean running = new AtomicBoolean( false );
-	private final AtomicInteger known_lines;
-	private final AtomicBoolean index_reset = new AtomicBoolean( false );
-	private volatile int processed_lines = 0;
+	private final AtomicInteger processed_lines = new AtomicInteger( 0 );
+
+	private final Lock state_lock = new ReentrantLock();
+	private volatile int state_known_lines = 0;
+	private volatile boolean state_index_reset = false;
+
 	private volatile boolean completed_initial_search = false;
 
 	private volatile boolean keep_going = true;
@@ -78,20 +81,24 @@ class Searcher<A>
 
 		// NOTE: this will only ever have one listener, but simplifies dispatching and
 		//       preserving message order.
-		listeners = ListenerSupportFactory.create( SearchListener.class,
-			SharedThreadPool.INSTANCE, this );
+		listeners = ListenerSupport.forType( SearchListener.class )
+			.executor( SharedThreadPool.INSTANCE )
+			.errorHandler( this )
+			.build();
 		listeners.add( listener );
 
-		// Listen for changes from the parent
-		// NOTE: using compare here because there's a very slim chance the listener could
-		//       fire before the original value has been set. In that case, it is the
-		//       authoritative value.
-		known_lines = new AtomicInteger( 0 );
-		known_lines.compareAndSet( 0, parent.addListener( this ) );
+		state_lock.lock();
+		try {
+			// Listen for changes from the parent
+			state_known_lines = parent.addListener( this );
 
-		// If there is data, start processing
-		if ( known_lines.get() != 0 ) {
-			SharedThreadPool.INSTANCE.execute( this );
+			// If there is data, start processing
+			if ( state_known_lines != 0 ) {
+				SharedThreadPool.INSTANCE.execute( this );
+			}
+		}
+		finally {
+			state_lock.unlock();
 		}
 	}
 
@@ -124,50 +131,62 @@ class Searcher<A>
 
 	private void inner_run() {
 		while( keep_going ) {
-			// First, check to see if we're been reset
-			if ( index_reset.compareAndSet( true, false ) ) {
-				processed_lines = 0;
+
+			boolean reset;
+			int known_lines;
+			state_lock.lock();
+			try {
+				reset = state_index_reset;
+				known_lines = state_known_lines;
+			}
+			finally {
+				state_lock.unlock();
 			}
 
-			// See how many lines are known and compare to number we've processed
-			int known_lines = this.known_lines.get();
-			if ( processed_lines == known_lines ) return;   // done
+			// First, check to see if we're been reset
+			if ( reset ) {
+				processed_lines.set( 0 );
+			}
+
+			if ( processed_lines.get() >= known_lines ) return;   // done
+
+			if ( LOG.isDebugEnabled() ) {
+				LOG.debug( "Search: {} - {}", processed_lines, known_lines );
+			}
 
 			final Queue<SearchMatch> match_notification_queue = new LinkedList<>();
 
 			final AtomicBoolean hit_max = new AtomicBoolean( false );
 			try {
-				parent.streamLines( processed_lines,
-					new TObjectProcedure<String>() {
-						@Override
-						public boolean execute( String line ) {
-							try {
-								// NOTE: according to LogIndexer API, unavailable lines
-								//       will have a null value.
-								if ( line == null ) {
-									return keep_going;
-								}
+				parent.streamLines( processed_lines.get(), ( line, line_index ) -> {
+					// NOTE: according to LogIndexer API, unavailable lines
+					//       will have a null value.
+					if ( line == null ) {
+						return keep_going;
+					}
 
-								try {
-									if ( searchLine( line, processed_lines,
-										match_notification_queue, hit_counter ) ) {
+					try {
+						if ( searchLine( ( String ) line, line_index,
+							match_notification_queue, hit_counter ) ) {
 
-										sendNotifications( match_notification_queue,
-											false );
-									}
-								}
-								catch( SearchLimitReachedException ex ) {
-									hit_max.set( true );
-									keep_going = false;
-									return false;
-								}
-							}
-							finally {
-								processed_lines++;
-							}
-							return keep_going;
+							sendNotifications( match_notification_queue, false );
 						}
-					} );
+					}
+					catch( SearchLimitReachedException ex ) {
+						hit_max.set( true );
+						keep_going = false;
+						return false;
+					}
+
+					// It's possible we could read more lines than we were notified about
+					// at the top of the loop due to timing. So, stop if we hit what we
+					// were aware of at the top of the loop to avoid odd scenarios.
+					if ( processed_lines.incrementAndGet() >= known_lines ) {
+						return false;
+					}
+
+					return keep_going;
+				} );
 //				System.out.println( "Streamed lines: " + streamed_lines );
 			}
 			catch ( IOException e ) {
@@ -178,7 +197,7 @@ class Searcher<A>
 			sendNotifications( match_notification_queue, true );    // flush
 
 			if ( hit_max.get() || ( !completed_initial_search && keep_going &&
-				processed_lines == known_lines ) ) {
+				processed_lines.get() == known_lines ) ) {
 
 				listeners.dispatch().searchScanFinished( id, hit_max.get() );
 				completed_initial_search = true;
@@ -291,19 +310,37 @@ class Searcher<A>
 		// If a full re-index is happening, reset the known lines and then indicate the
 		// reset.
 		if ( full ) {
-			known_lines.set( 0 );
-			index_reset.set( true );
+			state_lock.lock();
+			try {
+				state_known_lines = 0;
+				state_index_reset = true;
+			}
+			finally {
+				state_lock.unlock();
+			}
 		}
 	}
 
 	@Override
 	public void indexingFinished( A attachment, int total_rows ) {
-		known_lines.set( total_rows );
+		LOG.debug( "Notified of index completion: {} - {}", attachment, total_rows );
+
+		state_lock.lock();
+		try {
+			// Nothing to do, dup notification
+			if ( total_rows == state_known_lines ) return;
+
+			state_known_lines = total_rows;
+		}
+		finally {
+			state_lock.unlock();
+		}
 
 		if ( hit_counter.get() >= max_search_hits ) return;
 
 		// If the thread isn't processing, start it
 		if ( running.compareAndSet( false, true ) ) {
+			LOG.debug( "Search thread is not running. Will start" );
 			SharedThreadPool.INSTANCE.execute( this );
 		}
 	}

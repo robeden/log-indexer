@@ -12,7 +12,7 @@ import gnu.trove.map.TIntLongMap;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntLongHashMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-import gnu.trove.procedure.TObjectProcedure;
+import gnu.trove.procedure.TObjectIntProcedure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,12 +121,9 @@ public class LogIndexer<A> implements LogAccess<A> {
 		// Halt any running searchers
 		search_lock.lock();
 		try {
-			searchers.forEachValue( new TObjectProcedure<Searcher>() {
-				@Override
-				public boolean execute( Searcher searcher ) {
-					searcher.halt();
-					return true;
-				}
+			searchers.forEachValue( searcher -> {
+				searcher.halt();
+				return true;
 			} );
 		}
 		finally {
@@ -162,10 +159,10 @@ public class LogIndexer<A> implements LogAccess<A> {
 	public String[] readLines( final int start, final int count ) throws IOException {
 		final String[] to_return = new String[ count ];
 
-		streamLines( start, new TObjectProcedure<String>() {
+		streamLines( start, new TObjectIntProcedure<String>() {
 			int processed = 0;
 			@Override
-			public boolean execute( String line ) {
+			public boolean execute( String line, int line_index ) {
 //				if ( processed == 0 ) {
 //					System.out.println( "Read line: " + start + "->" + line );
 //				}
@@ -281,11 +278,12 @@ public class LogIndexer<A> implements LogAccess<A> {
 	 * @param start             Index of the first line to read.
 	 * @param line_processor    Calls {@link gnu.trove.procedure.TObjectProcedure#execute(Object)}
 	 *                          to process a line. The read will stop when that method
-	 *                          returns false or the end of file is reached.
+	 *                          returns false or the end of file is reached. The integer
+	 *                          argument is the line index.
 	 *
 	 * @return                  The number of lines processed.
 	 */
-	int streamLines( int start, TObjectProcedure<String> line_processor )
+	int streamLines( int start, TObjectIntProcedure<String> line_processor )
 		throws IOException {
 
 		// If it's outside the bounds, just return null entries
@@ -341,7 +339,7 @@ public class LogIndexer<A> implements LogAccess<A> {
 				}
 
 //				System.out.println( "Line " + current_line + ": " + line );
-				boolean keep_going = line_processor.execute( line );
+				boolean keep_going = line_processor.execute( line, current_line );
 
 				current_line++;
 				lines_processed++;
@@ -437,11 +435,29 @@ public class LogIndexer<A> implements LogAccess<A> {
 					}
 
 					// This is not very efficient, but buffering messes up the position
+					// NOTE: Use the same logic as BufferedReader for new lines:
+					//       "A line is considered to be terminated by any one
+					//       of a line feed ('\n'), a carriage return ('\r'), or a
+					//       carriage return followed immediately by a linefeed."
+					boolean last_char_was_cr = false;
 					int bite;
 					while( ( bite = in.read() ) != -1 ) {
 						// If it's not a newline, ignore.
 						// WARNING: this doesn't handle different line endings well
-						if ( bite != '\n' ) continue;
+						if ( bite == '\r' ) {
+							last_char_was_cr = true;
+						}
+						else if ( bite == '\n' ) {
+							if ( last_char_was_cr ) {
+								last_char_was_cr = false;
+								continue;       // new line was already processed
+							}
+							last_char_was_cr = false;
+						}
+						else {
+							last_char_was_cr = false;
+							continue;       // ignore this char
+						}
 
 
 						// NOTE: increment line right away since we're now at the end
@@ -466,7 +482,8 @@ public class LogIndexer<A> implements LogAccess<A> {
 				num_lines = line;
 				last_file_length = file.length();
 
-//				System.out.println( "  Found " + num_lines + " lines");
+//				System.out.println( "  Found " + num_lines +
+//					" lines (staring position was " + starting_position + ")");
 //				System.out.println( "  Map size: " + row_index_map.size() );
 //				System.out.println( "Map: " );
 //				for( int i = 0; i <= num_lines; i++ ) {

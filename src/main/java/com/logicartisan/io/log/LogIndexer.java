@@ -159,18 +159,15 @@ public class LogIndexer<A> implements LogAccess<A> {
 	public String[] readLines( final int start, final int count ) throws IOException {
 		final String[] to_return = new String[ count ];
 
-		streamLines( start, new TObjectIntProcedure<String>() {
-			int processed = 0;
-			@Override
-			public boolean execute( String line, int line_index ) {
+		streamLines( start, ( line, line_index ) -> {
+			LOG.debug( "Reading {} lines starting at {}, got line {}: {}", count, start,
+				line_index, line );
 //				if ( processed == 0 ) {
 //					System.out.println( "Read line: " + start + "->" + line );
 //				}
-				to_return[ processed ] = line;
-				processed++;
+			to_return[ line_index - start ] = line;
 
-				return processed < count;
-			}
+			return ( ( line_index - start ) + 1 ) < count;
 		} );
 
 		return to_return;
@@ -331,6 +328,9 @@ public class LogIndexer<A> implements LogAccess<A> {
 
 			String line;
 			while( ( line = bin.readLine() ) != null ) {
+				LOG.debug( "Current line \"{}\": {} (start: {})", current_line, line,
+					start );
+
 //				System.out.println( "current_line " + current_line + ": " + line +
 //					" (start: " + start + ")" );
 				if ( current_line < start ) {
@@ -424,7 +424,8 @@ public class LogIndexer<A> implements LogAccess<A> {
 					}
 					else line = starting_line;
 				}
-				
+
+				int bytes_since_newline = 0;
 				// At this point, ready to do the work, so grab a lock...
 				row_index_map_lock.lock();
 				try {
@@ -439,35 +440,51 @@ public class LogIndexer<A> implements LogAccess<A> {
 					//       "A line is considered to be terminated by any one
 					//       of a line feed ('\n'), a carriage return ('\r'), or a
 					//       carriage return followed immediately by a linefeed."
-					boolean last_char_was_cr = false;
+					boolean last_char_newline = false;
+					boolean last_char_cr = false;
 					int bite;
 					while( ( bite = in.read() ) != -1 ) {
-						// If it's not a newline, ignore.
-						// WARNING: this doesn't handle different line endings well
+//						System.out.println( "Position " + ( in.position() - 1 ) +
+//							": " + ( char ) bite );
+						bytes_since_newline++;
+
+						boolean mark_as_new_line = false;
+
+						// If the last character read was a newline ('\n'), then we're
+						// always at a new line.
+						if ( last_char_newline ) mark_as_new_line = true;
+
 						if ( bite == '\r' ) {
-							last_char_was_cr = true;
+							last_char_cr = true;
 						}
 						else if ( bite == '\n' ) {
-							if ( last_char_was_cr ) {
-								last_char_was_cr = false;
-								continue;       // new line was already processed
-							}
-							last_char_was_cr = false;
+							last_char_newline = true;
 						}
 						else {
-							last_char_was_cr = false;
-							continue;       // ignore this char
+							if ( last_char_cr ) mark_as_new_line = true;
+
+							last_char_cr = false;
+							last_char_newline = false;
 						}
 
+						if ( !mark_as_new_line ) continue;
 
-						// NOTE: increment line right away since we're now at the end
-						//       of the preceding line.
+						// Reset "last_char_*" variables as we don't care about state
+						// once the line has been advanced
+						last_char_cr = false;
+						last_char_newline = false;
+
+						bytes_since_newline = 0;
+
+						final long position = in.position() - 1;
+						LOG.debug( "Newline marked at: {}", position );
+
 						line++;
 
 						if ( line % row_skip_mod == 0 ) {
-							row_index_map.put( line, in.position() );
+							row_index_map.put( line, position );
 //							printRowIndexMap( "after add" );
-							
+
 							if ( row_index_map.size() > max_index_size ) {
 								row_skip_mod = increaseRowSkipMod( row_skip_mod, line );
 								printRowIndexMap( "after grow" );
@@ -479,17 +496,21 @@ public class LogIndexer<A> implements LogAccess<A> {
 					row_index_map_lock.unlock();
 				}
 				
-				num_lines = line;
+				num_lines = line + ( bytes_since_newline > 0 ? 1 : 0 );
 				last_file_length = file.length();
 
-//				System.out.println( "  Found " + num_lines +
-//					" lines (staring position was " + starting_position + ")");
-//				System.out.println( "  Map size: " + row_index_map.size() );
-//				System.out.println( "Map: " );
-//				for( int i = 0; i <= num_lines; i++ ) {
-//					if ( !row_index_map.containsKey( i ) ) continue;
-//					System.out.println( "  " + i + ": " + row_index_map.get( i ) );
-//				}
+				if ( LOG.isDebugEnabled() ) {
+					LOG.debug( "Found {} lines (starting position was {})", num_lines,
+						starting_position );
+					LOG.debug( "Map size: {}", row_index_map.size() );
+					if ( LOG.isTraceEnabled() ) {
+						LOG.trace( "Map:" );
+						for ( int i = 0; i <= num_lines; i++ ) {
+							if ( !row_index_map.containsKey( i ) ) continue;
+							LOG.trace( "  {}: {}", i, row_index_map.get( i ) );
+						}
+					}
+				}
 			}
 			catch( IOException ex ) {
 				// TODO?
@@ -531,6 +552,7 @@ public class LogIndexer<A> implements LogAccess<A> {
 	}
 
 	private void printRowIndexMap( String reason ) {
+		//noinspection PointlessBooleanExpression
 		if ( !DEBUG_ROW_INDEX_MAP ) return;
 
 		StringBuilder buf = new StringBuilder( "Map " );

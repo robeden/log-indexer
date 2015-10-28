@@ -3,7 +3,9 @@ package com.logicartisan.io.log;
 import org.junit.After;
 import org.junit.Test;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.nio.file.Paths;
 import java.util.LinkedList;
 import java.util.List;
@@ -162,5 +164,23 @@ public class SearchTest {
 
 		assertNull( error_slot.get() );
 		assertTrue( expected.toString(), expected.isEmpty() );
+
+
+
+		// Read every line and make sure they're as expected
+		int index = 0;
+		try( BufferedReader in = new BufferedReader( new FileReader( boot_log_file ) ) ) {
+			String line;
+			while( ( line = in.readLine() ) != null ) {
+				String[] lines = indexer.readLines( index, 1 );
+				assertEquals( "Mismatch at index " + index, line, lines[ 0 ] );
+
+				System.out.println( "Line " + index + ": " + line );
+				index++;
+			}
+		}
+		// NOTE: Adding one to the index because BufferedReader doesn't count the final
+		//       line, which is simply a blank line
+		assertEquals( indexer.getLineCount(), index );
 	}
 }

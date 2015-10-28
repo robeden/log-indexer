@@ -45,7 +45,10 @@ public class LogIndexerTest extends TestCase {
 
 	@Override
 	protected void tearDown() throws Exception {
-		if ( indexer != null ) indexer.close();
+		if ( indexer != null ) {
+			indexer.close();
+			indexer = null;
+		}
 
 		//noinspection ResultOfMethodCallIgnored
 		file.delete();
@@ -176,7 +179,9 @@ public class LogIndexerTest extends TestCase {
 			public void indexingStarting( File file, boolean full ) {}
 
 			@Override
-			public void indexingFinished( File file, int total_rows ) {}
+			public void indexingFinished( File file, int total_rows ) {
+				System.out.println( "Told of " + total_rows + " rows");
+			}
 		};
 
 		indexer = new LogIndexer<>( file, file, do_nothin, 2000, max_search_hits, null );
@@ -198,12 +203,6 @@ public class LogIndexerTest extends TestCase {
 				System.out.println( "searchScanFinished(" + search_id + "," +
 					exceed_max_matches + ")" );
 
-				if ( !expected_matches.isEmpty() ) {
-					System.err.println( "Some expected matches did not occur: " +
-						expected_matches );
-					has_failure.set( true );
-					return;
-				}
 
 				if ( should_exceed_max_matches != exceed_max_matches ) {
 					System.err.println( "Unexpected value for exceed_max_matches: " +
@@ -212,7 +211,14 @@ public class LogIndexerTest extends TestCase {
 					has_failure.set( true );
 				}
 
-				finished_latch.countDown();
+				if ( expected_matches.isEmpty() ) {
+					finished_latch.countDown();
+				}
+				else {
+					System.out.println( "Told that search was finished when some " +
+						"matches have not occurred. A search may start again though. " +
+						"Not currently matched: " + expected_matches );
+				}
 			}
 
 			@Override

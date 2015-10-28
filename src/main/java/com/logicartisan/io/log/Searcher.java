@@ -124,12 +124,18 @@ class Searcher<A>
 			inner_run();
 		}
 		finally {
+//			LOG.debug( "Scan finished: " + n)
+
+			listeners.dispatch().searchScanFinished( id,
+				hit_counter.get() >= max_search_hits );
+			completed_initial_search = true;
+
 			// Indicate we're no longer running
 			running.set( false );
 		}
 	}
 
-	private void inner_run() {
+	private boolean inner_run() {
 		while( keep_going ) {
 
 			boolean reset;
@@ -148,7 +154,7 @@ class Searcher<A>
 				processed_lines.set( 0 );
 			}
 
-			if ( processed_lines.get() >= known_lines ) return;   // done
+			if ( processed_lines.get() >= known_lines ) return false;   // done
 
 			if ( LOG.isDebugEnabled() ) {
 				LOG.debug( "Search: {} - {}", processed_lines, known_lines );
@@ -191,18 +197,16 @@ class Searcher<A>
 			}
 			catch ( IOException e ) {
 				LOG.warn( "Error searching log file: {}", parent.getAttachment(), e );
-				return;     // retry when a change is made
+				return false;     // retry when a change is made
+			}
+			finally {
+				sendNotifications( match_notification_queue, true );    // flush
 			}
 
-			sendNotifications( match_notification_queue, true );    // flush
-
-			if ( hit_max.get() || ( !completed_initial_search && keep_going &&
-				processed_lines.get() == known_lines ) ) {
-
-				listeners.dispatch().searchScanFinished( id, hit_max.get() );
-				completed_initial_search = true;
-			}
+			if ( hit_max.get() ) return true;
 		}
+
+		return false;
 	}
 
 	/**

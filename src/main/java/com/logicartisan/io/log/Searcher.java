@@ -46,8 +46,6 @@ class Searcher<A>
 	private volatile int state_known_lines = 0;
 	private volatile boolean state_index_reset = false;
 
-	private volatile boolean completed_initial_search = false;
-
 	private volatile boolean keep_going = true;
 
 	private final AtomicInteger hit_counter = new AtomicInteger( 0 );
@@ -128,7 +126,6 @@ class Searcher<A>
 
 			listeners.dispatch().searchScanFinished( id,
 				hit_counter.get() >= max_search_hits );
-			completed_initial_search = true;
 
 			// Indicate we're no longer running
 			running.set( false );
@@ -160,43 +157,46 @@ class Searcher<A>
 			if ( processed_lines.get() >= known_lines ) return false;   // done
 
 			if ( LOG.isDebugEnabled() ) {
-				LOG.debug( "Search: {} - {}", processed_lines, known_lines );
+				LOG.debug( "Search => processed_lines: {}  known_lines: {}  reset: {}  " +
+					"hit_counter: {}", processed_lines, known_lines, reset, hit_counter );
 			}
 
 			final Queue<SearchMatch> match_notification_queue = new LinkedList<>();
 
 			final AtomicBoolean hit_max = new AtomicBoolean( false );
 			try {
-				parent.streamLines( processed_lines.get(), ( line, line_index ) -> {
-					// NOTE: according to LogIndexer API, unavailable lines
-					//       will have a null value.
-					if ( line == null ) {
-						return keep_going;
-					}
-
-					try {
-						if ( searchLine( ( String ) line, line_index,
-							match_notification_queue, hit_counter ) ) {
-
-							sendNotifications( match_notification_queue, false );
+				int streamed_lines = parent.streamLines( processed_lines.get(),
+					( line, line_index ) -> {
+						// NOTE: according to LogIndexer API, unavailable lines
+						//       will have a null value.
+						if ( line == null ) {
+							LOG.debug( "Null content returned for line: {}", line_index );
+							return processed_lines.incrementAndGet() < known_lines;
 						}
-					}
-					catch( SearchLimitReachedException ex ) {
-						hit_max.set( true );
-						keep_going = false;
-						return false;
-					}
 
-					// It's possible we could read more lines than we were notified about
-					// at the top of the loop due to timing. So, stop if we hit what we
-					// were aware of at the top of the loop to avoid odd scenarios.
-					if ( processed_lines.incrementAndGet() >= known_lines ) {
-						return false;
-					}
+						try {
+							if ( searchLine( ( String ) line, line_index,
+								match_notification_queue, hit_counter ) ) {
 
-					return keep_going;
-				} );
-//				System.out.println( "Streamed lines: " + streamed_lines );
+								sendNotifications( match_notification_queue, false );
+							}
+						}
+						catch( SearchLimitReachedException ex ) {
+							hit_max.set( true );
+							keep_going = false;
+							return false;
+						}
+
+						// It's possible we could read more lines than we were notified about
+						// at the top of the loop due to timing. So, stop if we hit what we
+						// were aware of at the top of the loop to avoid odd scenarios.
+						if ( processed_lines.incrementAndGet() >= known_lines ) {
+							return false;
+						}
+
+						return keep_going;
+					} );
+				LOG.debug( "Streamed lines: {}", streamed_lines );
 			}
 			catch ( IOException e ) {
 				LOG.warn( "Error searching log file: {}", parent.getAttachment(), e );
@@ -350,6 +350,8 @@ class Searcher<A>
 
 
 	private void checkStartThread() {
+		if ( !keep_going ) return;
+
 		state_lock.lock();
 		try {
 			if ( processed_lines.get() >= state_known_lines ) return;

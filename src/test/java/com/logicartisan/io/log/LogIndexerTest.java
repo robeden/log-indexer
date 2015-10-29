@@ -39,7 +39,6 @@ public class LogIndexerTest extends TestCase {
 	@Override
 	protected void setUp() throws Exception {
 		file = File.createTempFile( LogIndexerTest.class.getSimpleName() + "-", ".test" );
-		file.deleteOnExit();
 
 		writer = new PrintWriter( new FileWriter( file, false ) );
 	}
@@ -51,9 +50,12 @@ public class LogIndexerTest extends TestCase {
 			indexer = null;
 		}
 
+
+		IOKit.close( writer );
+
 		//noinspection ResultOfMethodCallIgnored
 		file.delete();
-		IOKit.close( writer );
+		file = null;
 	}
 
 

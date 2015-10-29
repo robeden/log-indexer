@@ -143,6 +143,8 @@ class Searcher<A>
 			state_lock.lock();
 			try {
 				reset = state_index_reset;
+				state_index_reset = false;
+
 				known_lines = state_known_lines;
 			}
 			finally {

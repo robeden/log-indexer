@@ -93,7 +93,7 @@ class Searcher<A>
 			state_known_lines = parent.addListener( this );
 
 			// If there is data, start processing
-			if ( state_known_lines != 0 ) {
+			if ( state_known_lines != 0 && running.compareAndSet( false, true ) ) {
 				SharedThreadPool.INSTANCE.execute( this );
 			}
 		}
@@ -132,6 +132,9 @@ class Searcher<A>
 
 			// Indicate we're no longer running
 			running.set( false );
+
+			// Make sure we didn't miss changes and need to run again
+			checkStartThread();
 		}
 	}
 
@@ -342,10 +345,27 @@ class Searcher<A>
 
 		if ( hit_counter.get() >= max_search_hits ) return;
 
+		checkStartThread();
+	}
+
+
+	private void checkStartThread() {
+		state_lock.lock();
+		try {
+			if ( processed_lines.get() >= state_known_lines ) return;
+		}
+		finally {
+			state_lock.unlock();
+		}
+		if ( hit_counter.get() >= max_search_hits ) return;
+
 		// If the thread isn't processing, start it
 		if ( running.compareAndSet( false, true ) ) {
-			LOG.debug( "Search thread is not running. Will start" );
+			LOG.debug( "Searcher thread is not running. Will start" );
 			SharedThreadPool.INSTANCE.execute( this );
+		}
+		else {
+			LOG.debug( "Searcher thread is already running." );
 		}
 	}
 

@@ -477,7 +477,9 @@ public class LogIndexer<A> implements LogAccess<A> {
 						bytes_since_newline = 0;
 
 						final long position = in.position() - 1;
-						LOG.debug( "Newline marked at: {}", position );
+						if ( LOG.isTraceEnabled() ) {
+							LOG.trace( "Newline marked at: {}", position );
+						}
 
 						line++;
 

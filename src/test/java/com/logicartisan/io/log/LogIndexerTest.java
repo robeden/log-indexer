@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.easymock.EasyMock.*;
 
@@ -124,6 +125,10 @@ public class LogIndexerTest extends TestCase {
 	public void testSearching_SimpleInsensitive()
 		throws IOException, InterruptedException {
 
+		System.out.println( "----------------------------------------------------------" );
+		System.err.println( "----------------------------------------------------------" );
+
+
 		SearchMatch[] first = new SearchMatch[] {
 			new SearchMatch( 1, 0, 3 ),
 			new SearchMatch( 1, 9, 3 ),
@@ -151,6 +156,10 @@ public class LogIndexerTest extends TestCase {
 	}
 
 	public void testSearching_maxHits() throws IOException, InterruptedException {
+
+		System.out.println( "----------------------------------------------------------" );
+		System.err.println( "----------------------------------------------------------" );
+
 		SearchMatch[] first = new SearchMatch[] {
 			new SearchMatch( 1, 0, 3 ),
 			new SearchMatch( 1, 9, 3 ) };
@@ -203,15 +212,15 @@ public class LogIndexerTest extends TestCase {
 				System.out.println( "searchScanFinished(" + search_id + "," +
 					exceed_max_matches + ")" );
 
-
-				if ( should_exceed_max_matches != exceed_max_matches ) {
-					System.err.println( "Unexpected value for exceed_max_matches: " +
-						exceed_max_matches + " (expected " + should_exceed_max_matches +
-						")" );
-					has_failure.set( true );
-				}
-
 				if ( expected_matches.isEmpty() ) {
+					if ( should_exceed_max_matches != exceed_max_matches ) {
+						System.err.println( "Unexpected value for exceed_max_matches: " +
+							exceed_max_matches + " (expected " + should_exceed_max_matches +
+							")" );
+						has_failure.set( true );
+					}
+
+
 					finished_latch.countDown();
 				}
 				else {
@@ -223,8 +232,10 @@ public class LogIndexerTest extends TestCase {
 
 			@Override
 			public void searchTermMatches( int search_id, SearchMatch... matches ) {
-				System.out.println( "searchTermMatches(" + search_id + "," +
-					Arrays.toString( matches ) + ")" );
+				System.out.println( "searchTermMatches(" + search_id + ",\n   " +
+					Arrays.asList( matches ).stream()
+						.map( Object::toString )
+						.collect( Collectors.joining( "\n   " ) ) );
 
 				if ( expected_matches.isEmpty() ) {
 					System.err.println( "Unexpected call to searchTermMatches: " +

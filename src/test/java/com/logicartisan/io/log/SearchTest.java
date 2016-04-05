@@ -36,8 +36,8 @@ public class SearchTest {
 
 
 	/**
-	 * Real world test case of search for "COMMAND" in "boot.log" (in resources). Original
-	 * problem was failure to detect the search was complete.
+	 * Real world test case of search for "COMMAND" in "openlmi-install.log"
+	 * (in resources). Original problem was a line mismatch.
 	 */
 	@Test
 	public void testOpenLMILogSearchForCommand() throws Exception {

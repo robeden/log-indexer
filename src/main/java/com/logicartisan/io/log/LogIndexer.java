@@ -252,18 +252,12 @@ public class LogIndexer<A> implements LogAccess<A> {
 	}
 
 
-	/**
-	 * Opens the file in Reader format. This can be overridden to support alternate file
-	 * formats.
-	 */
-	protected Reader openReaderForFile( File file ) throws IOException {
-		return new FileReader( file );
-	}
 
 	/**
 	 * Opens the file in InputStream format. This can be overridden to support alternate
 	 * file formats.
 	 */
+	@SuppressWarnings( "WeakerAccess" )
 	protected InputStream openStreamForFile( File file ) throws IOException {
 		return new FileInputStream( file );
 	}
@@ -288,10 +282,11 @@ public class LogIndexer<A> implements LogAccess<A> {
 
 		int lines_processed = 0;
 
-		Reader in = null;
+		InputStream in = null;
+		InputStreamReader inr = null;
 		BufferedReader bin = null;
 		try {
-			in = openReaderForFile( file );
+			in = openStreamForFile( file );
 
 			int current_line = start;
 
@@ -315,7 +310,11 @@ public class LogIndexer<A> implements LogAccess<A> {
 							LOG.debug( "Skipping to location {} for line {} to read {}",
 								location, current_line, start );
 						}
-						in.skip( location );
+
+						long to_skip = location;
+						while( to_skip > 0 ) {
+							to_skip -= in.skip( location );
+						}
 					}
 				}
 				finally {
@@ -324,7 +323,8 @@ public class LogIndexer<A> implements LogAccess<A> {
 			}
 
 			// Create the BufferedReader, now starting at the correct position
-			bin = new BufferedReader( in );
+			inr = new InputStreamReader( in );
+			bin = new BufferedReader( inr );
 
 			String line;
 			while( ( line = bin.readLine() ) != null ) {
@@ -357,6 +357,7 @@ public class LogIndexer<A> implements LogAccess<A> {
 		}
 		finally {
 			IOKit.close( bin );
+			IOKit.close( inr );
 			IOKit.close( in );
 		}
 	}
@@ -453,7 +454,7 @@ public class LogIndexer<A> implements LogAccess<A> {
 					while( ( bite = in.read() ) != -1 ) {
 //						System.out.println( "Position " + ( in.position() - 1 ) +
 //							": " + ( char ) bite + " (0x" +
-//                          Integer.toHexString( bite ) + ")" );
+//							Integer.toHexString( bite ) + ")" );
 						bytes_since_newline++;
 
 						boolean mark_as_new_line = false;

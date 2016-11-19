@@ -36,36 +36,32 @@ public class SearchTest {
 
 
 	/**
+	 * Real world test case of search for "COMMAND" in "openlmi-install.log"
+	 * (in resources). Original problem was a line mismatch.
+	 */
+	@Test
+	public void testOpenLMILogSearchForCommand() throws Exception {
+		final List<SearchMatch> expected = new LinkedList<>();
+		expected.add( new SearchMatch( 1, 20, 7 ) );
+		expected.add( new SearchMatch( 11, 20, 7 ) );
+		expected.add( new SearchMatch( 13, 20, 7 ) );
+		expected.add( new SearchMatch( 15, 20, 7 ) );
+		expected.add( new SearchMatch( 21, 20, 7 ) );
+
+
+		SearchParams params = new SearchParams.SimpleSearchParams( "COMMAND", false );
+
+		// NOTE: this log has a blank line in it, which threw off
+		testBundleLogFile( "openlmi-install.log", params, expected );
+	}
+
+
+	/**
 	 * Real world test case of search for "System" in "boot.log" (in resources). Original
 	 * problem was failure to detect the search was complete.
 	 */
 	@Test
 	public void testBootLogSearchForSystem() throws Exception {
-		File boot_log_file =
-			Paths.get( SearchTest.class.getResource( "boot.log" ).toURI() ).toFile();
-
-		final CountDownLatch initial_index_complete_latch = new CountDownLatch( 1 );
-		LogIndexListener<File> listener = new LogIndexListener<File>() {
-			@Override
-			public void indexingStarting( File attachment, boolean full ) {}
-
-			@Override
-			public void indexingFinished( File attachment, int total_rows ) {
-				initial_index_complete_latch.countDown();
-			}
-		};
-
-
-		LogIndexer<File> indexer = new LogIndexer<>( boot_log_file, boot_log_file,
-			listener, 1000, 100, null );
-
-		assertTrue( "Timed out waiting for initial index",
-			initial_index_complete_latch.await( 5, TimeUnit.SECONDS ) );
-
-		SearchParams params = new SearchParams.SimpleSearchParams( "system", false );
-		final AtomicInteger matches_count = new AtomicInteger( 0 );
-		final CountDownLatch search_complete_latch = new CountDownLatch( 1 );
-
 		final List<SearchMatch> expected = new LinkedList<>();
 		expected.add( new SearchMatch( 2, 39, 6 ) );
 		expected.add( new SearchMatch( 4, 23, 6 ) );
@@ -127,6 +123,42 @@ public class SearchTest {
 		expected.add( new SearchMatch( 246, 44, 6 ) );
 		expected.add( new SearchMatch( 248, 5, 6 ) );
 
+		SearchParams params = new SearchParams.SimpleSearchParams( "system", false );
+
+		testBundleLogFile( "boot.log", params, expected );
+	}
+
+
+	private void testBundleLogFile( String file_name, SearchParams params,
+		List<SearchMatch> expected ) throws Exception {
+
+		final int expected_match_count = expected.size();
+
+		File file =
+			Paths.get( SearchTest.class.getResource( file_name ).toURI() ).toFile();
+
+		final CountDownLatch initial_index_complete_latch = new CountDownLatch( 1 );
+		LogIndexListener<File> listener = new LogIndexListener<File>() {
+			@Override
+			public void indexingStarting( File attachment, boolean full ) {}
+
+			@Override
+			public void indexingFinished( File attachment, int total_rows ) {
+				initial_index_complete_latch.countDown();
+			}
+		};
+
+
+		LogIndexer<File> indexer = new LogIndexer<>( file, file,
+			listener, 1000, 100, null );
+
+		assertTrue( "Timed out waiting for initial index",
+			initial_index_complete_latch.await( 5, TimeUnit.SECONDS ) );
+
+		final AtomicInteger matches_count = new AtomicInteger( 0 );
+		final CountDownLatch search_complete_latch = new CountDownLatch( 1 );
+
+
 		AtomicReference<String> error_slot = new AtomicReference<>();
 		SearchListener search_listener = new SearchListener() {
 			@Override
@@ -160,7 +192,7 @@ public class SearchTest {
 
 		assertTrue( "Timed out waiting for search completion",
 			search_complete_latch.await( 5, TimeUnit.SECONDS ) );
-		assertEquals( 59, matches_count.get() );
+		assertEquals( expected_match_count, matches_count.get() );
 
 		assertNull( error_slot.get() );
 		assertTrue( expected.toString(), expected.isEmpty() );
@@ -169,7 +201,7 @@ public class SearchTest {
 
 		// Read every line and make sure they're as expected
 		int index = 0;
-		try( BufferedReader in = new BufferedReader( new FileReader( boot_log_file ) ) ) {
+		try( BufferedReader in = new BufferedReader( new FileReader( file ) ) ) {
 			String line;
 			while( ( line = in.readLine() ) != null ) {
 				String[] lines = indexer.readLines( index, 1 );

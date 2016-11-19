@@ -1,0 +1,29 @@
+2015-01-29 19:56:46 Registering mofs: /usr/share/openlmi-providers/05_LMI_Qualifiers.mof /usr/share/openlmi-providers/30_LMI_Jobs.mof, reg: None
+2015-01-29 19:56:46 COMMAND: /usr/bin/cimmofl -aEV -n root/cimv2 -R /var/lib/Pegasus -uc /usr/share/openlmi-providers/05_LMI_Qualifiers.mof /usr/share/openlmi-providers/30_LMI_Jobs.mof
+Warning: Use of cimmofl can corrupt the CIM Server Repository.
+         cimmofl should only be used under very controlled situations.
+         cimmof is the recommended OpenPegasus MOF compiler.
+
+2015-01-29 19:56:46 EXIT CODE: 0
+Generating LALR tables
+2015-01-29 19:56:46 05_LMI_Qualifiers.mof added to database
+2015-01-29 19:56:46 30_LMI_Jobs.mof added to database
+2015-04-21 08:36:56 Unregistering mofs: /usr/share/openlmi-providers/05_LMI_Qualifiers.mof /usr/share/openlmi-providers/30_LMI_Jobs.mof, reg: None
+2015-04-21 08:36:56 COMMAND: /usr/sbin/cimserver daemon=true enableHttpConnection=false enableHttpsConnection=false enableRemotePrivilegedUserAccess=false slp=false
+2015-04-21 08:36:56 EXIT CODE: 0
+2015-04-21 08:36:56 COMMAND: /usr/bin/mofcomp -n root/cimv2 /usr/share/openlmi-providers/05_LMI_Qualifiers.mof /usr/share/openlmi-providers/30_LMI_Jobs.mof
+2015-04-21 08:36:56 EXIT CODE: 0
+2015-04-21 08:36:56 COMMAND: /usr/sbin/cimserver -s
+CIM Server stopped.
+2015-04-21 08:36:58 EXIT CODE: 0
+2015-04-21 08:37:00 05_LMI_Qualifiers.mof removed from database
+2015-04-21 08:37:00 30_LMI_Jobs.mof removed from database
+2015-04-21 08:37:01 Registering mofs: /usr/share/openlmi-providers/05_LMI_Qualifiers.mof /usr/share/openlmi-providers/30_LMI_Jobs.mof, reg: None
+2015-04-21 08:37:01 COMMAND: /usr/bin/cimmofl -aEV -n root/cimv2 -R /var/lib/Pegasus -uc /usr/share/openlmi-providers/05_LMI_Qualifiers.mof /usr/share/openlmi-providers/30_LMI_Jobs.mof
+Warning: Use of cimmofl can corrupt the CIM Server Repository.
+         cimmofl should only be used under very controlled situations.
+         cimmof is the recommended OpenPegasus MOF compiler.
+
+2015-04-21 08:37:01 EXIT CODE: 0
+2015-04-21 08:37:01 05_LMI_Qualifiers.mof added to database
+2015-04-21 08:37:01 30_LMI_Jobs.mof added to database

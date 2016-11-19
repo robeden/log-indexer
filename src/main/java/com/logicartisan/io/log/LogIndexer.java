@@ -250,18 +250,12 @@ public class LogIndexer<A> implements LogAccess<A> {
 	}
 
 
-	/**
-	 * Opens the file in Reader format. This can be overridden to support alternate file
-	 * formats.
-	 */
-	protected Reader openReaderForFile( File file ) throws IOException {
-		return new FileReader( file );
-	}
 
 	/**
 	 * Opens the file in InputStream format. This can be overridden to support alternate
 	 * file formats.
 	 */
+	@SuppressWarnings( "WeakerAccess" )
 	protected InputStream openStreamForFile( File file ) throws IOException {
 		return new FileInputStream( file );
 	}
@@ -286,10 +280,11 @@ public class LogIndexer<A> implements LogAccess<A> {
 
 		int lines_processed = 0;
 
-		Reader in = null;
+		InputStream in = null;
+		InputStreamReader inr = null;
 		BufferedReader bin = null;
 		try {
-			in = openReaderForFile( file );
+			in = openStreamForFile( file );
 
 			int current_line = start;
 
@@ -313,7 +308,11 @@ public class LogIndexer<A> implements LogAccess<A> {
 							LOG.debug( "Skipping to location {} for line {} to read {}",
 								location, current_line, start );
 						}
-						in.skip( location );
+
+						long to_skip = location;
+						while( to_skip > 0 ) {
+							to_skip -= in.skip( location );
+						}
 					}
 				}
 				finally {
@@ -322,7 +321,8 @@ public class LogIndexer<A> implements LogAccess<A> {
 			}
 
 			// Create the BufferedReader, now starting at the correct position
-			bin = new BufferedReader( in );
+			inr = new InputStreamReader( in );
+			bin = new BufferedReader( inr );
 
 			String line;
 			while( ( line = bin.readLine() ) != null ) {
@@ -355,16 +355,23 @@ public class LogIndexer<A> implements LogAccess<A> {
 		}
 		finally {
 			IOKit.close( bin );
+			IOKit.close( inr );
 			IOKit.close( in );
 		}
 	}
 
 
+	private enum NewlineState {
+		WAS_NOT_NEWLINE,
+		WAS_NEWLINE,
+		WAS_CR
+	}
 
 	/**
 	 * Class that does indexing, both full and partial.
 	 */
 	private class Indexer implements Runnable {
+
 		private final int starting_line;
 		private final long starting_position;
 		
@@ -434,43 +441,53 @@ public class LogIndexer<A> implements LogAccess<A> {
 					}
 
 					// This is not very efficient, but buffering messes up the position
+
 					// NOTE: Use the same logic as BufferedReader for new lines:
 					//       "A line is considered to be terminated by any one
 					//       of a line feed ('\n'), a carriage return ('\r'), or a
 					//       carriage return followed immediately by a linefeed."
-					boolean last_char_newline = false;
-					boolean last_char_cr = false;
+					NewlineState pending_newline_state =
+						NewlineState.WAS_NOT_NEWLINE;
 					int bite;
 					while( ( bite = in.read() ) != -1 ) {
 //						System.out.println( "Position " + ( in.position() - 1 ) +
-//							": " + ( char ) bite );
+//							": " + ( char ) bite + " (0x" +
+//							Integer.toHexString( bite ) + ")" );
 						bytes_since_newline++;
 
 						boolean mark_as_new_line = false;
 
-						// If the last character read was a newline ('\n'), then we're
-						// always at a new line.
-						if ( last_char_newline ) mark_as_new_line = true;
 
-						if ( bite == '\r' ) {
-							last_char_cr = true;
+						switch( pending_newline_state ) {
+							case WAS_NOT_NEWLINE:
+								break;
+							case WAS_NEWLINE:
+								mark_as_new_line = true;
+								break;
+							case WAS_CR:
+								// If the current bite is a newline and a CR preceded us,
+								// we'll mark the newline on the next character.
+								if ( bite == '\n' ) {
+									pending_newline_state = NewlineState.WAS_NEWLINE;
+									continue;
+								}
+								else mark_as_new_line = true;
+								break;
 						}
-						else if ( bite == '\n' ) {
-							last_char_newline = true;
-						}
-						else {
-							if ( last_char_cr ) mark_as_new_line = true;
 
-							last_char_cr = false;
-							last_char_newline = false;
+						switch( bite ) {
+							case '\r':
+								pending_newline_state = NewlineState.WAS_CR;
+								break;
+							case '\n':
+								pending_newline_state = NewlineState.WAS_NEWLINE;
+								break;
+							default:
+								pending_newline_state = NewlineState.WAS_NOT_NEWLINE;
+								break;
 						}
 
 						if ( !mark_as_new_line ) continue;
-
-						// Reset "last_char_*" variables as we don't care about state
-						// once the line has been advanced
-						last_char_cr = false;
-						last_char_newline = false;
 
 						bytes_since_newline = 0;
 

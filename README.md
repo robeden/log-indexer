@@ -42,4 +42,4 @@ License
     limitations under the License.
 
 
- [1]: https://search.maven.org/remote_content?g=com.logicartisan&a=common-core&v=LATEST
+ [1]: https://search.maven.org/remote_content?g=com.logicartisan&a=log-indexer&v=LATEST

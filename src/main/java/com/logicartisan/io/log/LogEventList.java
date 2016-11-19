@@ -4,21 +4,20 @@ import ca.odell.glazedlists.AbstractEventList;
 import ca.odell.glazedlists.event.ListEventPublisher;
 import ca.odell.glazedlists.util.concurrent.LockFactory;
 import ca.odell.glazedlists.util.concurrent.ReadWriteLock;
-import com.starlight.thread.SharedThreadPool;
+import com.logicartisan.common.core.thread.SharedThreadPool;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.SoftReference;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -57,7 +56,7 @@ public class LogEventList<A> extends AbstractEventList<String>
 	 * This constructor should be used if the model HAS NOT already been added as a
 	 * listener.
 	 */
-	public LogEventList( @NotNull LogAccess<A> access ) {
+	public LogEventList( @Nonnull LogAccess<A> access ) {
 		this( access, null, null );
 	}
 
@@ -65,7 +64,7 @@ public class LogEventList<A> extends AbstractEventList<String>
 	 * This constructor should be used if the model HAS NOT already been added as a
 	 * listener.
 	 */
-	public LogEventList( final @NotNull LogAccess<A> access,
+	public LogEventList( final @Nonnull LogAccess<A> access,
 		@Nullable ListEventPublisher publisher,
 		@Nullable ReadWriteLock read_write_lock ) {
 
@@ -77,12 +76,9 @@ public class LogEventList<A> extends AbstractEventList<String>
 		query_thread_pool = createThreadPool();
 
 		// Add listener
-		SharedThreadPool.INSTANCE.execute( new Runnable() {
-			@Override
-			public void run() {
-				int line_count = access.addListener( LogEventList.this );
-				processNewRowCount( line_count );
-			}
+		SharedThreadPool.INSTANCE.execute( () -> {
+			int line_count = access.addListener( LogEventList.this );
+			processNewRowCount( line_count );
 		} );
 	}
 
@@ -91,14 +87,14 @@ public class LogEventList<A> extends AbstractEventList<String>
 	/**
 	 * This constructor should be used if the model HAS already been added as a listener.
 	 */
-	public LogEventList( @NotNull LogAccess<A> access, int line_count ) {
+	public LogEventList( @Nonnull LogAccess<A> access, int line_count ) {
 		this( access, line_count, null, null );
 	}
 
 	/**
 	 * This constructor should be used if the model HAS already been added as a listener.
 	 */
-	public LogEventList( @NotNull LogAccess<A> access, int line_count,
+	public LogEventList( @Nonnull LogAccess<A> access, int line_count,
 		@Nullable ListEventPublisher publisher,
 		@Nullable ReadWriteLock read_write_lock ) {
 
@@ -147,7 +143,7 @@ public class LogEventList<A> extends AbstractEventList<String>
 		Chunk ref;
 		while( ( ref = ( Chunk ) chunk_ref_queue.poll() ) != null ) {
 			if ( LOG.isDebugEnabled() ) {
-				LOG.debug( "Chunk {} GC'ed", Integer.valueOf( ref.index ) );
+				LOG.debug( "Chunk {} GC'ed", ref.index );
 			}
 			line_map.remove( ref.index );
 		}
@@ -212,7 +208,7 @@ public class LogEventList<A> extends AbstractEventList<String>
 	@Override
 	public void indexingStarting( A attachment, boolean full ) {
 		if ( LOG.isDebugEnabled() ) {
-			LOG.debug( "indexingStarting({},{})", attachment, Boolean.valueOf( full ) );
+			LOG.debug( "indexingStarting({},{})", attachment, full );
 		}
 	}
 
@@ -224,7 +220,7 @@ public class LogEventList<A> extends AbstractEventList<String>
 		readWriteLock.writeLock().lock();
 		try {
 			if ( LOG.isDebugEnabled() ) {
-				LOG.debug( "New row count: {}", Integer.valueOf( rows ) );
+				LOG.debug( "New row count: {}", rows );
 			}
 
 			int previous_rows = rows_slot.get();
@@ -269,28 +265,25 @@ public class LogEventList<A> extends AbstractEventList<String>
 
 	private ThreadPoolExecutor createThreadPool() {
 		return new ThreadPoolExecutor( 1, 1, Long.MAX_VALUE,
-			TimeUnit.DAYS, new ArrayBlockingQueue<Runnable>( 5 ),
+			TimeUnit.DAYS, new ArrayBlockingQueue<>( 5 ),
 			// This is a modified version of DiscardOldestPolicy that removes the index
 			// that's no longer being queried for when a task is thrown away.
-			new RejectedExecutionHandler() {
-				@Override
-				public void rejectedExecution( Runnable r, ThreadPoolExecutor e ) {
-		            if (!e.isShutdown()) {
-		                Runnable to_discard = e.getQueue().poll();
-			            if ( to_discard != null ) {
-				            DataFetcher fetcher = ( DataFetcher ) to_discard;
-				            active_query_set_lock.lock();
-				            try {
-					            active_query_set.remove( fetcher.index );
-				            }
-				            finally {
-					            active_query_set_lock.unlock();
-				            }
+			( r, e ) -> {
+	            if (!e.isShutdown()) {
+	                Runnable to_discard = e.getQueue().poll();
+		            if ( to_discard != null ) {
+			            DataFetcher fetcher = ( DataFetcher ) to_discard;
+			            active_query_set_lock.lock();
+			            try {
+				            active_query_set.remove( fetcher.index );
 			            }
-
-		                e.execute(r);
+			            finally {
+				            active_query_set_lock.unlock();
+			            }
 		            }
-				}
+
+	                e.execute(r);
+	            }
 			} );
 	}
 
@@ -319,7 +312,9 @@ public class LogEventList<A> extends AbstractEventList<String>
 			try {
 				Thread.sleep( 500 );
 			}
-			catch ( InterruptedException e ) {}
+			catch ( InterruptedException e ) {
+				// ignore
+			}
 
 			Thread.currentThread().setName( "DataFetcher: " + index );
 			try {
@@ -331,7 +326,7 @@ public class LogEventList<A> extends AbstractEventList<String>
 					if ( lines[ 0 ] == null ) {
 						if ( LOG.isInfoEnabled() ) {
 							LOG.info( "Query for chunk {} gave all nulls",
-								Integer.valueOf( index ) );
+								index );
 						}
 						return;
 					}
@@ -357,8 +352,8 @@ public class LogEventList<A> extends AbstractEventList<String>
 				try {
 					if ( LOG.isDebugEnabled() ) {
 						LOG.debug( "Put data for chunk {}. Non-null lines: {}",
-							Integer.valueOf( index ),
-							Integer.valueOf( countNonNullLines( lines ) ) );
+							index,
+							countNonNullLines( lines ) );
 					}
 
 

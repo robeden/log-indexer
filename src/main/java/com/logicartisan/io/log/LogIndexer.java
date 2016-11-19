@@ -1,13 +1,9 @@
 package com.logicartisan.io.log;
 
-import com.starlight.IOKit;
-import com.starlight.NotNull;
-import com.starlight.Nullable;
-import com.starlight.ValidationKit;
-import com.starlight.io.PositionTrackingInputStream;
-import com.starlight.listeners.ErrorCountDeliveryErrorHandler;
-import com.starlight.listeners.ListenerSupport;
-import com.starlight.thread.SharedThreadPool;
+import com.logicartisan.common.core.IOKit;
+import com.logicartisan.common.core.listeners.ErrorCountDeliveryErrorHandler;
+import com.logicartisan.common.core.listeners.ListenerSupport;
+import com.logicartisan.common.core.thread.SharedThreadPool;
 import gnu.trove.map.TIntLongMap;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntLongHashMap;
@@ -16,8 +12,11 @@ import gnu.trove.procedure.TObjectIntProcedure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.*;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -79,12 +78,12 @@ public class LogIndexer<A> implements LogAccess<A> {
 	 * @param all_listeners_removed     Runnable that is called when/if the last listener
 	 *                          if removed due to a message delivery problem.
 	 */
-	public LogIndexer( @NotNull File file, @Nullable A attachment,
+	public LogIndexer( @Nonnull File file, @Nullable A attachment,
 		@Nullable LogIndexListener<A> listener,
 		int max_index_size, int max_search_hits,
 		@Nullable final Runnable all_listeners_removed ) {
 
-		ValidationKit.checkNonnull( file, "file" );
+		Objects.requireNonNull( file );
 
 		this.file = file;
 		this.attachment = attachment;
@@ -154,7 +153,6 @@ public class LogIndexer<A> implements LogAccess<A> {
 	 * @param count     The number of lines to retrieve.
 	 *
 	 * @return  The array of lines. Will always be non-null and of length <tt>count</tt>.
-	 * @throws IOException
 	 */
 	public String[] readLines( final int start, final int count ) throws IOException {
 		final String[] to_return = new String[ count ];
@@ -215,8 +213,8 @@ public class LogIndexer<A> implements LogAccess<A> {
 	 */
 	@Override
 	public int startSearch( SearchParams params, SearchListener listener ) {
-		ValidationKit.checkNonnull( params, "params" );
-		ValidationKit.checkNonnull( listener, "listener" );
+		Objects.requireNonNull( params );
+		Objects.requireNonNull( listener );
 
 		search_lock.lock();
 		try {

@@ -1,8 +1,8 @@
 package com.logicartisan.io.log;
 
-import com.starlight.listeners.ListenerSupport;
-import com.starlight.listeners.MessageDeliveryErrorHandler;
-import com.starlight.thread.SharedThreadPool;
+import com.logicartisan.common.core.listeners.ListenerSupport;
+import com.logicartisan.common.core.listeners.MessageDeliveryErrorHandler;
+import com.logicartisan.common.core.thread.SharedThreadPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -398,8 +398,7 @@ class Searcher<A>
 
 	@Override
 	public ErrorResponse excessiveBacklog(
-		SearchListener listener, int backlog_size, int overall_error_count,
-		int overall_success_count, int consecutive_errors ) {
+		SearchListener listener, int backlog_size, int consecutive_backlog_errors ) {
 
 		return ErrorResponse.REMOVE_LISTENER;
 	}

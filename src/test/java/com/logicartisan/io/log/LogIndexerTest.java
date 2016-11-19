@@ -5,8 +5,8 @@
 
 package com.logicartisan.io.log;
 
-import com.starlight.IOKit;
-import com.starlight.thread.ThreadKit;
+import com.logicartisan.common.core.IOKit;
+import com.logicartisan.common.core.thread.ThreadKit;
 import junit.framework.TestCase;
 
 import java.io.File;

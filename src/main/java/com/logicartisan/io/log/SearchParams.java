@@ -5,9 +5,9 @@
 
 package com.logicartisan.io.log;
 
-import com.starlight.ValidationKit;
-
+import javax.annotation.Nonnull;
 import java.io.Serializable;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 
@@ -21,8 +21,8 @@ public class SearchParams {
 	 * @param token             The token to search for.
 	 * @param case_sensitive    Whether or not the search should be case sensitive.
 	 */
-	public static SearchParams createSimple( String token, boolean case_sensitive ) {
-		ValidationKit.checkNonnull( token, "token" );
+	public static SearchParams createSimple( @Nonnull String token, boolean case_sensitive ) {
+		Objects.requireNonNull( token );
 
 		return new SimpleSearchParams( token, case_sensitive );
 	}
@@ -33,8 +33,8 @@ public class SearchParams {
 	 *
 	 * @param pattern           The regex pattern to search for.
 	 */
-	public static SearchParams createRegex( Pattern pattern ) {
-		ValidationKit.checkNonnull( pattern, "pattern" );
+	public static SearchParams createRegex( @Nonnull Pattern pattern ) {
+		Objects.requireNonNull( pattern );
 
 		return new RegexSearchParams( pattern );
 	}

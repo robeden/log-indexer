@@ -5,12 +5,9 @@
 
 package com.logicartisan.io.log;
 
-import com.starlight.ArrayKit;
-import com.starlight.ExceptionKit;
-import com.starlight.listeners.ListenerSupport;
-import com.starlight.listeners.ListenerSupportFactory;
-import com.starlight.thread.ObjectSlot;
-import com.starlight.thread.SharedThreadPool;
+import com.logicartisan.common.core.listeners.ListenerSupport;
+import com.logicartisan.common.core.thread.ObjectSlot;
+import com.logicartisan.common.core.thread.SharedThreadPool;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 import gnu.trove.set.TIntSet;
@@ -46,14 +43,18 @@ public class LogObservableList<A> extends AbstractList<String>
 	private static final Logger LOG =
 		LoggerFactory.getLogger( LogObservableList.class );
 
+	private static final int[] EMPTY_INT_ARRAY = new int[ 0 ];
+
 	private static final int CHUNK_SIZE = 25;
+
+
 
 	private final ThreadPoolExecutor query_thread_pool;
 
-	private final ListenerSupport<ListChangeListener,Void> change_listeners =
-			ListenerSupportFactory.create( ListChangeListener.class, false );
-	private final ListenerSupport<InvalidationListener,Void> invalidation_listeners =
-		ListenerSupportFactory.create( InvalidationListener.class, false );
+	private final ListenerSupport<ListChangeListener,?> change_listeners =
+		ListenerSupport.forType( ListChangeListener.class ).build();
+	private final ListenerSupport<InvalidationListener,?> invalidation_listeners =
+		ListenerSupport.forType( InvalidationListener.class ).build();
 
 	private final LogAccess<A> access;
 
@@ -78,12 +79,9 @@ public class LogObservableList<A> extends AbstractList<String>
 		query_thread_pool = createThreadPool();
 
 		// Add listener
-		SharedThreadPool.INSTANCE.execute( new Runnable() {
-			@Override
-			public void run() {
-				int line_count = access.addListener( LogObservableList.this );
-				processNewRowCount( line_count );
-			}
+		SharedThreadPool.INSTANCE.execute( () -> {
+			int line_count = access.addListener( LogObservableList.this );
+			processNewRowCount( line_count );
 		} );
 	}
 
@@ -101,28 +99,25 @@ public class LogObservableList<A> extends AbstractList<String>
 
 	private ThreadPoolExecutor createThreadPool() {
 		return new ThreadPoolExecutor( 1, 1, Long.MAX_VALUE,
-			TimeUnit.DAYS, new ArrayBlockingQueue<Runnable>( 5 ),
+			TimeUnit.DAYS, new ArrayBlockingQueue<>( 5 ),
 			// This is a modified version of DiscardOldestPolicy that removes the index
 			// that's no longer being queried for when a task is thrown away.
-			new RejectedExecutionHandler() {
-				@Override
-				public void rejectedExecution( Runnable r, ThreadPoolExecutor e ) {
-		            if (!e.isShutdown()) {
-		                Runnable to_discard = e.getQueue().poll();
-			            if ( to_discard != null ) {
-				            DataFetcher fetcher = ( DataFetcher ) to_discard;
-				            active_query_set_lock.lock();
-				            try {
-					            active_query_set.remove( fetcher.index );
-				            }
-				            finally {
-					            active_query_set_lock.unlock();
-				            }
+			( r, e ) -> {
+	            if (!e.isShutdown()) {
+	                Runnable to_discard = e.getQueue().poll();
+		            if ( to_discard != null ) {
+			            DataFetcher fetcher = ( DataFetcher ) to_discard;
+			            active_query_set_lock.lock();
+			            try {
+				            active_query_set.remove( fetcher.index );
 			            }
-
-		                e.execute(r);
+			            finally {
+				            active_query_set_lock.unlock();
+			            }
 		            }
-				}
+
+	                e.execute(r);
+	            }
 			} );
 	}
 
@@ -151,7 +146,7 @@ public class LogObservableList<A> extends AbstractList<String>
 		Chunk ref;
 		while( ( ref = ( Chunk ) chunk_ref_queue.poll() ) != null ) {
 			if ( LOG.isDebugEnabled() ) {
-				LOG.debug( "Chunk {} GC'ed", Integer.valueOf( ref.index ) );
+				LOG.debug( "Chunk {} GC'ed", ref.index );
 			}
 			line_map.remove( ref.index );
 		}
@@ -214,7 +209,7 @@ public class LogObservableList<A> extends AbstractList<String>
 	@Override
 	public void indexingStarting( A attachment, boolean full ) {
 		if ( LOG.isDebugEnabled() ) {
-			LOG.debug( "indexingStarting({},{})", attachment, Boolean.valueOf( full ) );
+			LOG.debug( "indexingStarting({},{})", attachment, full );
 		}
 	}
 
@@ -223,15 +218,9 @@ public class LogObservableList<A> extends AbstractList<String>
 	public int size() {
 		if ( !Platform.isFxApplicationThread() ) {
 			final ObjectSlot<Integer> value_slot = new ObjectSlot<>();
-			Platform.runLater( new Runnable() {
-				@Override
-				public void run() {
-					value_slot.set( row_property.getValue() );
-				}
-			} );
+			Platform.runLater( () -> value_slot.set( row_property.getValue() ) );
 			try {
-				Integer value = value_slot.waitForValue();
-				return value.intValue();
+				return value_slot.waitForValue();
 			}
 			catch ( InterruptedException e ) {
 				// Ack. Throw caution to the wind and try direct access
@@ -268,17 +257,12 @@ public class LogObservableList<A> extends AbstractList<String>
 	 */
 	private void processNewRowCount( final int rows ) {
 		if ( !Platform.isFxApplicationThread() ) {
-			Platform.runLater( new Runnable() {
-				@Override
-				public void run() {
-					processNewRowCount( rows );
-				}
-			} );
+			Platform.runLater( () -> processNewRowCount( rows ) );
 			return;
 		}
 
 		if ( LOG.isDebugEnabled() ) {
-			LOG.debug( "New row count: {}", Integer.valueOf( rows ) );
+			LOG.debug( "New row count: {}", rows );
 		}
 
 		int previous_rows = row_property.get();
@@ -361,7 +345,7 @@ public class LogObservableList<A> extends AbstractList<String>
 
 		@Override
 		protected int[] getPermutation() {
-			return ArrayKit.EMPTY_INT_ARRAY;
+			return EMPTY_INT_ARRAY;
 		}
 	}
 
@@ -431,7 +415,7 @@ public class LogObservableList<A> extends AbstractList<String>
 
 		@Override
 		protected int[] getPermutation() {
-			return ArrayKit.EMPTY_INT_ARRAY;
+			return EMPTY_INT_ARRAY;
 		}
 	}
 
@@ -454,7 +438,7 @@ public class LogObservableList<A> extends AbstractList<String>
 					if ( lines[ 0 ] == null ) {
 						if ( LOG.isInfoEnabled() ) {
 							LOG.info( "Query for chunk {} gave all nulls",
-								Integer.valueOf( index ) );
+								index );
 						}
 						return;
 					}
@@ -465,7 +449,8 @@ public class LogObservableList<A> extends AbstractList<String>
 							CHUNK_SIZE, ex );
 					}
 					lines = new String[ CHUNK_SIZE ];
-					String line = "Error reading: " + ExceptionKit.simpleToString( ex );
+					String line = "Error reading: " +
+						( ex.getMessage() == null ? ex.toString() : ex.getMessage() );
 					for( int i = 0; i < lines.length; i++ ) {
 						lines[ i ] = line;
 					}
@@ -520,8 +505,8 @@ public class LogObservableList<A> extends AbstractList<String>
 
 				if ( LOG.isDebugEnabled() ) {
 					LOG.debug( "Put data for chunk {}. Non-null lines: {}",
-						Integer.valueOf( index ),
-						Integer.valueOf( findNonNullLines( lines ) ) );
+						index,
+						findNonNullLines( lines ) );
 				}
 				line_map.put( index, new Chunk( lines, chunk_ref_queue, index ) );
 
@@ -565,7 +550,7 @@ public class LogObservableList<A> extends AbstractList<String>
 
 		@Override
 		protected int[] getPermutation() {
-			return ArrayKit.EMPTY_INT_ARRAY;
+			return EMPTY_INT_ARRAY;
 		}
 
 
@@ -583,7 +568,7 @@ public class LogObservableList<A> extends AbstractList<String>
 	private class Chunk extends SoftReference<String[]> {
 		private final int index;
 
-		public Chunk( String[] chunk, ReferenceQueue<? super String[]> q,
+		Chunk( String[] chunk, ReferenceQueue<? super String[]> q,
 			int index ) {
 
 			super( chunk, q );

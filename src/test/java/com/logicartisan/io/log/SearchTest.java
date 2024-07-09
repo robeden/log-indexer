@@ -13,6 +13,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -32,6 +33,21 @@ public class SearchTest {
 			indexer.close();
 			indexer = null;
 		}
+	}
+
+
+	/**
+	 * Regex single character search with multiple adjacent matches within the same line.
+	 */
+	@Test
+	public void testSingleCharacterSearch() throws Exception {
+		final List<SearchMatch> expected = new LinkedList<>();
+		expected.add( new SearchMatch( 0, 1, 1 ) );
+		expected.add( new SearchMatch( 0, 2, 1 ) );
+
+		SearchParams params = SearchParams.createRegex( Pattern.compile("\\d") );
+
+		testBundleLogFile( "adjacent_characters_test.log", params, expected );
 	}
 
 

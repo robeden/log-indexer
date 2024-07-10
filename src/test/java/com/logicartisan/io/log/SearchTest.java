@@ -1,7 +1,7 @@
 package com.logicartisan.io.log;
 
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -14,9 +14,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 
 /**
@@ -26,7 +24,7 @@ public class SearchTest {
 	private LogIndexer<File> indexer = null;
 
 
-	@After
+	@AfterEach
 	public void tearDown() {
 		if ( indexer != null ) {
 			indexer.close();
@@ -138,22 +136,24 @@ public class SearchTest {
 			Paths.get( SearchTest.class.getResource( file_name ).toURI() ).toFile();
 
 		final CountDownLatch initial_index_complete_latch = new CountDownLatch( 1 );
-		LogIndexListener<File> listener = new LogIndexListener<File>() {
-			@Override
-			public void indexingStarting( File attachment, boolean full ) {}
+		LogIndexListener<File> listener = new LogIndexListener<>() {
+            @Override
+            public void indexingStarting(File attachment, boolean full) {
+            }
 
-			@Override
-			public void indexingFinished( File attachment, int total_rows ) {
-				initial_index_complete_latch.countDown();
-			}
-		};
+            @Override
+            public void indexingFinished(File attachment, int total_rows) {
+                initial_index_complete_latch.countDown();
+            }
+        };
 
 
 		LogIndexer<File> indexer = new LogIndexer<>( file, file,
 			listener, 1000, 100, null );
 
-		assertTrue( "Timed out waiting for initial index",
-			initial_index_complete_latch.await( 5, TimeUnit.SECONDS ) );
+		assertTrue(
+			initial_index_complete_latch.await( 5, TimeUnit.SECONDS ),
+			"Timed out waiting for initial index" );
 
 		final AtomicInteger matches_count = new AtomicInteger( 0 );
 		final CountDownLatch search_complete_latch = new CountDownLatch( 1 );
@@ -190,12 +190,12 @@ public class SearchTest {
 		};
 		indexer.startSearch( params, search_listener );
 
-		assertTrue( "Timed out waiting for search completion",
-			search_complete_latch.await( 5, TimeUnit.SECONDS ) );
+		assertTrue( search_complete_latch.await( 5, TimeUnit.SECONDS ),
+			 "Timed out waiting for search completion" );
 		assertEquals( expected_match_count, matches_count.get() );
 
 		assertNull( error_slot.get() );
-		assertTrue( expected.toString(), expected.isEmpty() );
+		assertTrue( expected.isEmpty(), expected.toString() );
 
 
 
@@ -205,7 +205,7 @@ public class SearchTest {
 			String line;
 			while( ( line = in.readLine() ) != null ) {
 				String[] lines = indexer.readLines( index, 1 );
-				assertEquals( "Mismatch at index " + index, line, lines[ 0 ] );
+				assertEquals( line, lines[ 0 ], "Mismatch at index " + index );
 
 				System.out.println( "Line " + index + ": " + line );
 				index++;

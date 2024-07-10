@@ -20,8 +20,9 @@ dependencies {
     implementation("net.sf.trove4j:trove4j:3.0.3")
     implementation("com.logicartisan:common-core:1.1.0")
 
-    testImplementation("junit:junit:4.12")
-    testImplementation("org.easymock:easymock:3.1")
+    testImplementation("org.easymock:easymock:5.2.0")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 
@@ -37,6 +38,9 @@ java {
 val testJavaVersion = System.getProperty("test.java.version", "21").toInt()
 tasks.named<Test>("test") {
     useJUnitPlatform()
+    testLogging {
+        showStandardStreams = true
+    }
 
     val javaToolchains = project.extensions.getByType<JavaToolchainService>()
     javaLauncher.set(javaToolchains.launcherFor {

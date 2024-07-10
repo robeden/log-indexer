@@ -7,7 +7,9 @@ package com.logicartisan.io.log;
 
 import com.logicartisan.common.core.IOKit;
 import com.logicartisan.common.core.thread.ThreadKit;
-import junit.framework.TestCase;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -24,27 +26,28 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.easymock.EasyMock.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 
 /**
  *
  */
-public class LogIndexerTest extends TestCase {
+public class LogIndexerTest {
 	private File file;
 	private PrintWriter writer;
 
 	private LogIndexer<File> indexer;
 
 
-	@Override
-	protected void setUp() throws Exception {
+	@BeforeEach
+	void setUp() throws Exception {
 		file = File.createTempFile( LogIndexerTest.class.getSimpleName() + "-", ".test" );
 
 		writer = new PrintWriter( new FileWriter( file, false ) );
 	}
 
-	@Override
-	protected void tearDown() throws Exception {
+	@AfterEach
+	void tearDown() {
 		if ( indexer != null ) {
 			indexer.close();
 			indexer = null;
@@ -60,10 +63,10 @@ public class LogIndexerTest extends TestCase {
 
 
 
+	@Test
 	public void testIndexing() throws Exception {
 		writeLines( "Test line 1", "Test line 2", "Test line 3" );
 
-		//noinspection unchecked
 		LogIndexListener<File> mock_listener = createMock( LogIndexListener.class );
 		mock_listener.indexingStarting( file, true );
 		mock_listener.indexingFinished( file, 3 );
@@ -112,6 +115,7 @@ public class LogIndexerTest extends TestCase {
 	}
 
 
+	@Test
 	public void testSearching_SimpleSensitive() throws IOException, InterruptedException {
 		SearchMatch[] first = new SearchMatch[] {
 			new SearchMatch( 1, 9, 3 ),
@@ -124,6 +128,7 @@ public class LogIndexerTest extends TestCase {
 			1000, false );
 	}
 
+	@Test
 	public void testSearching_SimpleInsensitive()
 		throws IOException, InterruptedException {
 
@@ -144,6 +149,7 @@ public class LogIndexerTest extends TestCase {
 			1000, false );
 	}
 
+	@Test
 	// Same as testSearching_SimpleSensitive
 	public void testSearching_Regex1() throws IOException, InterruptedException {
 		SearchMatch[] first = new SearchMatch[] {
@@ -157,6 +163,7 @@ public class LogIndexerTest extends TestCase {
 			first, second, 1000, false );
 	}
 
+	@Test
 	public void testSearching_maxHits() throws IOException, InterruptedException {
 
 		System.out.println( "----------------------------------------------------------" );
@@ -185,15 +192,16 @@ public class LogIndexerTest extends TestCase {
 			"Hat",
 			"hat" );
 
-		LogIndexListener<File> do_nothin = new LogIndexListener<File>() {
-			@Override
-			public void indexingStarting( File file, boolean full ) {}
+		LogIndexListener<File> do_nothin = new LogIndexListener<>() {
+            @Override
+            public void indexingStarting(File file, boolean full) {
+            }
 
-			@Override
-			public void indexingFinished( File file, int total_rows ) {
-				System.out.println( "Told of " + total_rows + " rows");
-			}
-		};
+            @Override
+            public void indexingFinished(File file, int total_rows) {
+                System.out.println("Told of " + total_rows + " rows");
+            }
+        };
 
 		indexer = new LogIndexer<>( file, file, do_nothin, 2000, max_search_hits, null );
 		System.out.println( "Indexer is: " + indexer );
@@ -235,7 +243,7 @@ public class LogIndexerTest extends TestCase {
 			@Override
 			public void searchTermMatches( int search_id, SearchMatch... matches ) {
 				System.out.println( "searchTermMatches(" + search_id + ",\n   " +
-					Arrays.asList( matches ).stream()
+					Arrays.stream( matches )
 						.map( Object::toString )
 						.collect( Collectors.joining( "\n   " ) ) );
 

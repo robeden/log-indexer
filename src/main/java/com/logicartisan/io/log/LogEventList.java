@@ -17,6 +17,7 @@ import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.SoftReference;
+import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -32,7 +33,7 @@ public class LogEventList<A> extends AbstractEventList<String>
 	implements LogIndexListener<A>, Closeable {
 
 	private static final Logger LOG =
-		LoggerFactory.getLogger( LogObservableList.class );
+		LoggerFactory.getLogger( LogEventList.class );
 
 	private static final int CHUNK_SIZE = 25;
 
@@ -338,9 +339,7 @@ public class LogEventList<A> extends AbstractEventList<String>
 					}
 					lines = new String[ CHUNK_SIZE ];
 					String line = "Error reading: " + ex;
-					for( int i = 0; i < lines.length; i++ ) {
-						lines[ i ] = line;
-					}
+                    Arrays.fill(lines, line);
 				}
 
 
@@ -357,7 +356,7 @@ public class LogEventList<A> extends AbstractEventList<String>
 					}
 
 
-					line_map.put( index, new Chunk( lines, chunk_ref_queue, index ) );
+					line_map.put( index, new Chunk(lines, chunk_ref_queue, index));
 
 				}
 				finally {
@@ -381,7 +380,7 @@ public class LogEventList<A> extends AbstractEventList<String>
 
 
 
-	private class Chunk extends SoftReference<String[]> {
+	private static class Chunk extends SoftReference<String[]> {
 		private final int index;
 
 		public Chunk( String[] chunk, ReferenceQueue<? super String[]> q,

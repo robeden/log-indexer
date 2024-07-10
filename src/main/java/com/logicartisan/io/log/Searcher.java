@@ -242,7 +242,7 @@ class Searcher<A>
 					throw new SearchLimitReachedException();
 				}
 
-				start_position = matcher.end() + 1;
+				start_position = matcher.end();
 				if ( start_position >= line.length() ) break;
 			}
 		}

@@ -67,4 +67,16 @@ public interface LogAccess<A> {
 	 * Cancels a currently running search.
 	 */
 	public void stopSearch( int search_id );
+
+
+	/**
+	 * Resumes a search that was halted or stopped after having reached the maximum number of matches
+	 * allowed for a search. Resets tracked number of matches, allowing the resumed search to find
+	 * another maximum number of matches.
+	 *
+	 * @param search_id     The ID for the search to resume
+	 *
+	 * @return              True if the search was resumed
+	 */
+	public boolean resumeSearch( int search_id );
 }

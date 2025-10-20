@@ -1,4 +1,6 @@
 
+/.jreleaser
+
 # Disabling everything IntelliJ IDEA-related, though there are better
 # specifics below.
 /.idea

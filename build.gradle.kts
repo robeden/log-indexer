@@ -4,6 +4,7 @@ plugins {
     `java-library`
     `maven-publish`
     signing
+    id("org.jreleaser") version "1.20.0"
 }
 
 group = "com.logicartisan"
@@ -101,7 +102,7 @@ publishing {
             name = "OSSRH"
             url = if (version.toString().endsWith("SNAPSHOT"))
                 uri("https://oss.sonatype.org/content/repositories/snapshots/")
-            else uri("https://oss.sonatype.org/service/local/staging/deploy/maven2/")
+            else uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
 
             credentials {
                 username = findProperty("ossrhUsername")?.toString() ?: System.getenv("OSSRH_USERNAME")
@@ -116,4 +117,33 @@ signing {
     val signingPassword: String? by project
     useInMemoryPgpKeys(signingInMemoryKey, signingPassword)
     sign(publishing.publications["mavenJava"])
+}
+
+
+jreleaser {
+    project {
+        copyright = "Rob Eden"
+        description = "Dynamic indexing and access to logs or other continually updating files"
+    }
+    signing {
+        setActive("ALWAYS")
+        setMode("MEMORY")
+        armored = true
+
+//        mode = Signing.Mode.MEMORY
+//
+//        publicKey = "public.key"
+//        secretKey = "private.key"
+    }
+    deploy {
+        maven {
+            mavenCentral {
+                create("sonatype") {
+                    setActive("ALWAYS")
+                    url = "https://central.sonatype.com/api/v1/publisher"
+                    stagingRepository("target/staging-deploy")
+                }
+            }
+        }
+    }
 }

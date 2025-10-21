@@ -102,18 +102,6 @@ publishing {
             name = "PreDeploy"
             url = uri(layout.buildDirectory.dir("pre-deploy"))
         }
-
-//        maven {
-//            name = "OSSRH"
-//            url = if (version.toString().endsWith("SNAPSHOT"))
-//                uri("https://oss.sonatype.org/content/repositories/snapshots/")
-//            else uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
-//
-//            credentials {
-//                username = findProperty("ossrhUsername")?.toString() ?: System.getenv("OSSRH_USERNAME")
-//                password = findProperty("ossrhPassword")?.toString() ?: System.getenv("OSSRH_PASSWORD")
-//            }
-//        }
     }
 }
 
@@ -134,11 +122,6 @@ jreleaser {
         setActive("ALWAYS")
         setMode("MEMORY")
         armored = true
-
-//        mode = Signing.Mode.MEMORY
-//
-//        publicKey = "public.key"
-//        secretKey = "private.key"
     }
     deploy {
         maven {
@@ -147,6 +130,8 @@ jreleaser {
                     setActive("ALWAYS")
                     url = "https://central.sonatype.com/api/v1/publisher"
                     stagingRepository("build/pre-deploy")
+                    username = findProperty("ossrhUsername")?.toString() ?: System.getenv("OSSRH_USERNAME")
+                    password = findProperty("ossrhPassword")?.toString() ?: System.getenv("OSSRH_PASSWORD")
                 }
             }
         }

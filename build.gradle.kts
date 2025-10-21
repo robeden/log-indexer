@@ -97,7 +97,12 @@ publishing {
             }
         }
     }
-//    repositories {
+    repositories {
+        maven {
+            name = "PreDeploy"
+            url = uri(layout.buildDirectory.dir("pre-deploy"))
+        }
+
 //        maven {
 //            name = "OSSRH"
 //            url = if (version.toString().endsWith("SNAPSHOT"))
@@ -109,7 +114,7 @@ publishing {
 //                password = findProperty("ossrhPassword")?.toString() ?: System.getenv("OSSRH_PASSWORD")
 //            }
 //        }
-//    }
+    }
 }
 
 signing {
@@ -141,9 +146,14 @@ jreleaser {
                 create("sonatype") {
                     setActive("ALWAYS")
                     url = "https://central.sonatype.com/api/v1/publisher"
-                    stagingRepository("target/staging-deploy")
+                    stagingRepository("build/pre-deploy")
                 }
             }
+        }
+    }
+    release {
+        github {
+            enabled = false
         }
     }
 }

@@ -250,6 +250,30 @@ public class LogIndexer<A> implements LogAccess<A> {
 	}
 
 
+	/**
+	 * Resumes a search that was halted or stopped after having reached the maximum number of matches
+	 * allowed for a search. Resets tracked number of matches, allowing the resumed search to find
+	 * another maximum number of matches.
+	 *
+	 * @param search_id     The ID for the search to resume
+	 *
+	 * @return              True if the search was resumed
+	 */
+	@Override
+	public boolean resumeSearch( int search_id ) {
+		search_lock.lock();
+		try {
+			Searcher searcher = searchers.get( search_id );
+			if ( searcher != null ) {
+				return searcher.resume();
+			}
+		}
+		finally {
+			search_lock.unlock();
+		}
+		return false;
+	}
+
 
 	/**
 	 * Opens the file in InputStream format. This can be overridden to support alternate

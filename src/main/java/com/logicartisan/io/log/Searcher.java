@@ -49,6 +49,7 @@ class Searcher<A>
 	private volatile boolean keep_going = true;
 
 	private final AtomicInteger hit_counter = new AtomicInteger( 0 );
+	private final AtomicInteger start_index = new AtomicInteger( 0 );
 
 
 	Searcher( LogIndexer parent, int id, SearchParams params,
@@ -109,6 +110,16 @@ class Searcher<A>
 	}
 
 
+	/**
+	 * Resume searching.
+	 */
+	boolean resume() {
+		hit_counter.set( 0 );
+		keep_going = true;
+		return checkStartThread();
+	}
+
+
 	///////////////////////////////////////////////
 	// From Runnable
 
@@ -154,6 +165,7 @@ class Searcher<A>
 			// First, check to see if we're been reset
 			if ( reset ) {
 				processed_lines.set( 0 );
+				start_index.set( 0 );
 			}
 
 			if ( processed_lines.get() >= known_lines ) return false;   // done
@@ -179,7 +191,6 @@ class Searcher<A>
 						try {
 							if ( searchLine( ( String ) line, line_index,
 								match_notification_queue, hit_counter ) ) {
-
 								sendNotifications( match_notification_queue, false );
 							}
 						}
@@ -188,6 +199,11 @@ class Searcher<A>
 							keep_going = false;
 							return false;
 						}
+
+						// Reset this after searching the entire line.
+						// This is not reset if the search limit was reached before the entire line
+						// was searched.
+						start_index.set( 0 );
 
 						// It's possible we could read more lines than we were notified about
 						// at the top of the loop due to timing. So, stop if we hit what we
@@ -221,13 +237,15 @@ class Searcher<A>
 		Queue<SearchMatch> match_notification_queue, AtomicInteger hit_counter )
 		throws SearchLimitReachedException {
 
-		if ( line.length() == 0 ) return false;
+		if ( line.isEmpty() ) return false;
+
+		int start_position = start_index.get();
+		if( start_position >= line.length() ) return false;
 
 		boolean hit = false;
 		if ( matcher != null ) {
 			matcher.reset( line );
 
-			int start_position = 0;
 			while( matcher.find( start_position ) ) {
 				hit = true;
 
@@ -236,13 +254,15 @@ class Searcher<A>
 					new SearchMatch( row_index, start, matcher.end() - start );
 				match_notification_queue.add( match );
 
+				start_position = matcher.end();
+
 				// See if we've exceeded the max number of hits
 				int hit_count = hit_counter.incrementAndGet();
 				if ( hit_count >= max_search_hits ) {
+					start_index.set( start_position );
 					throw new SearchLimitReachedException();
 				}
 
-				start_position = matcher.end();
 				if ( start_position >= line.length() ) break;
 			}
 		}
@@ -251,10 +271,9 @@ class Searcher<A>
 			// in-sensitively.
 			String search_line = case_sensitive ? line : line.toLowerCase();
 
-			int start_search_index = 0;
 			int match_index;
 			while( ( match_index =
-				search_line.indexOf( token, start_search_index ) ) >= 0 ) {
+				search_line.indexOf( token, start_position ) ) >= 0 ) {
 
 				hit = true;
 
@@ -262,13 +281,16 @@ class Searcher<A>
 					new SearchMatch( row_index, match_index, token.length() );
 				match_notification_queue.add( match );
 
+				start_position = match_index + token.length();
+
 				// See if we've exceeded the max number of hits
 				int hit_count = hit_counter.incrementAndGet();
 				if ( hit_count >= max_search_hits ) {
+					start_index.set( start_position );
 					throw new SearchLimitReachedException();
 				}
 
-				start_search_index = match_index + token.length();
+				if ( start_position >= line.length() ) break;
 			}
 		}
 
@@ -351,17 +373,17 @@ class Searcher<A>
 	}
 
 
-	private void checkStartThread() {
-		if ( !keep_going ) return;
+	private boolean checkStartThread() {
+		if ( !keep_going ) return false;
 
 		state_lock.lock();
 		try {
-			if ( processed_lines.get() >= state_known_lines ) return;
+			if ( processed_lines.get() >= state_known_lines ) return false;
 		}
 		finally {
 			state_lock.unlock();
 		}
-		if ( hit_counter.get() >= max_search_hits ) return;
+		if ( hit_counter.get() >= max_search_hits ) return false;
 
 		// If the thread isn't processing, start it
 		if ( running.compareAndSet( false, true ) ) {
@@ -371,6 +393,7 @@ class Searcher<A>
 		else {
 			LOG.debug( "Searcher thread is already running." );
 		}
+		return true;
 	}
 
 

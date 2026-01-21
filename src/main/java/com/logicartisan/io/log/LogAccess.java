@@ -79,4 +79,15 @@ public interface LogAccess<A> {
 	 * @return              True if the search was resumed
 	 */
 	public boolean resumeSearch( int search_id );
+
+
+	/**
+	 * Sets the full/partial index handling for file changes.
+	 * @param full_index_after_modified When true, full indexing of the file will occur
+	 *                                  whenever the last modified time is updated. When
+	 *                                  false, full indexing occurs when the file shrinks,
+	 *                                  and partial indexing from the last indexed
+	 *                                  position occurs when the file grows.
+	 */
+	public void setFullIndexAfterModified( boolean full_index_after_modified );
 }

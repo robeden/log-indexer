@@ -332,6 +332,7 @@ public class LogIndexer<A> implements LogAccess<A> {
 	 *                                  and partial indexing from the last indexed
 	 *                                  position occurs when the file grows.
 	 */
+	@Override
 	public void setFullIndexAfterModified( boolean full_index_after_modified ) {
 		this.full_index_after_modified = full_index_after_modified;
 	}

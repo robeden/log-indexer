@@ -109,6 +109,15 @@ class Searcher<A>
 		keep_going = false;
 	}
 
+	void close() {
+		// stop any further work
+		keep_going = false;
+		// detach from parent indexing notifications
+		try {
+			//noinspection unchecked
+			parent.removeListener(this);
+		} catch (Exception ignored) {}
+	}
 
 	/**
 	 * Resume searching.
@@ -343,6 +352,9 @@ class Searcher<A>
 		if ( full ) {
 			state_lock.lock();
 			try {
+				hit_counter.set( 0 );
+				keep_going = true;
+				processed_lines.set( 0 );
 				state_known_lines = 0;
 				state_index_reset = true;
 			}
@@ -427,5 +439,5 @@ class Searcher<A>
 	}
 
 	@Override
-	public void lastListenerRemoved() {}
+	public void lastListenerRemoved() { }
 }

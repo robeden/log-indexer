@@ -43,8 +43,8 @@ public class LogEventList<A> extends AbstractEventList<String>
 
 	private final TIntObjectMap<Chunk> line_map =
 		new TIntObjectHashMap<>();
-	private final ReferenceQueue chunk_ref_queue =
-		new ReferenceQueue();
+	private final ReferenceQueue<String[]> chunk_ref_queue =
+		new ReferenceQueue<>();
 
 	private final TIntSet active_query_set = new TIntHashSet();
 	private final Lock active_query_set_lock = new ReentrantLock();
@@ -140,13 +140,20 @@ public class LogEventList<A> extends AbstractEventList<String>
 
 	@Override
 	public String get( int index ) {
-		// Clean up map to remove GC'ed chunks
-		Chunk ref;
-		while( ( ref = ( Chunk ) chunk_ref_queue.poll() ) != null ) {
-			if ( LOG.isDebugEnabled() ) {
-				LOG.debug( "Chunk {} GC'ed", ref.index );
+
+		readWriteLock.writeLock().lock();
+		try {
+			// Clean up map to remove GC'ed chunks
+			Chunk ref;
+			while ( ( ref = ( Chunk ) chunk_ref_queue.poll() ) != null ) {
+				if ( LOG.isDebugEnabled() ) {
+					LOG.debug( "Chunk {} GC'ed", ref.index );
+				}
+				line_map.remove( ref.index );
 			}
-			line_map.remove( ref.index );
+		}
+		finally {
+			readWriteLock.writeLock().unlock();
 		}
 
 
@@ -156,9 +163,15 @@ public class LogEventList<A> extends AbstractEventList<String>
 		if ( distance_from_main_index == 0 ) main_index = index;
 		else main_index = index - distance_from_main_index;
 
-		SoftReference<String[]> chunk_ref = line_map.get( main_index );
 		String[] chunk = null;
-		if ( chunk_ref != null ) chunk = chunk_ref.get();
+		readWriteLock.readLock().lock();
+		try {
+			SoftReference<String[]> chunk_ref = line_map.get( main_index );
+			if ( chunk_ref != null ) chunk = chunk_ref.get();
+		}
+		finally {
+			readWriteLock.readLock().unlock();
+		}
 
 		String line = null;
 		if ( chunk != null ) line = chunk[ distance_from_main_index ];
@@ -342,10 +355,23 @@ public class LogEventList<A> extends AbstractEventList<String>
                     Arrays.fill(lines, line);
 				}
 
+				int end_exclusive;
+				readWriteLock.readLock().lock();
+				try {
+					int current_size = rows_slot.get();
+					if ( index >= current_size ) {
+						// list shrank/rotated while fetch was queued; nothing to update
+						return;
+					}
+					end_exclusive = Math.min( current_size, index + lines.length );
+				}
+				finally {
+					readWriteLock.readLock().unlock();
+				}
 
-		        // create the change event
-		        updates.beginEvent();
-				updates.addUpdate( index, index + lines.length );
+				// create the change event (within bounds)
+				updates.beginEvent();
+				updates.addUpdate( index, end_exclusive );
 
 				readWriteLock.writeLock().lock();
 				try {

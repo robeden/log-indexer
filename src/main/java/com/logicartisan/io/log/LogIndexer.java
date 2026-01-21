@@ -15,6 +15,8 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.ScheduledFuture;
@@ -51,8 +53,15 @@ public class LogIndexer<A> implements LogAccess<A> {
 	
 	
 	// The number of rows found in the file
-	private volatile int num_lines = 1;
+	private volatile int num_lines = 0;
+
 	private volatile long last_file_length = 0;
+	private volatile long last_last_modified = 0;
+
+	private volatile boolean full_index_after_modified = false;
+	private volatile boolean pending_same_length_modified = false;
+	private volatile long pending_modified_value = 0;
+
 
 	private final AtomicBoolean indexer_scheduled;
 
@@ -61,6 +70,61 @@ public class LogIndexer<A> implements LogAccess<A> {
 	private final Lock search_lock = new ReentrantLock();
 	private final TIntObjectMap<Searcher> searchers = new TIntObjectHashMap<>();
 
+
+	/**
+	 * Create the indexer and do an initial indexing of the file.
+	 *
+	 * @param file              The file to index.
+	 * @param listener          If non-null, this listener will be notified when indexes
+	 *                          are running.
+	 * @param max_index_size    The maximum size of the row index. The larger this number
+	 *                          the more memory will be used with large files. If the
+	 *                          size if smaller than the number of rows in the file, only
+	 *                          a certain portion of the row indexes will be kept which
+	 *                          will require more seeking when looking for a particular
+	 *                          line.
+	 * @param max_search_hits   Maximum number of matches allowed for a search.
+	 * @param full_index_after_modified   When true, full indexing of the file will occur
+	 *                                    whenever the last modified time is updated. When
+	 *                                    false, full indexing occurs when the file shrinks,
+	 *                                    and partial indexing from the last indexed
+	 *                                    position occurs when the file grows.
+	 * @param all_listeners_removed     Runnable that is called when/if the last listener
+	 *                          if removed due to a message delivery problem.
+	 */
+	public LogIndexer( @Nonnull File file, @Nullable A attachment,
+					   @Nullable LogIndexListener<A> listener,
+					   int max_index_size, int max_search_hits, boolean full_index_after_modified,
+					   @Nullable final Runnable all_listeners_removed ) {
+
+		Objects.requireNonNull( file );
+
+		this.file = file;
+		this.attachment = attachment;
+		this.listeners = ListenerSupport.forType( LogIndexListener.class )
+				.errorHandler(
+						new ErrorCountDeliveryErrorHandler<LogIndexListener>( 3, true ) {
+							@Override
+							public void lastListenerRemoved() {
+								if ( all_listeners_removed != null ) all_listeners_removed.run();
+							}
+						} )
+				.asynchronous()
+				.build();
+		this.max_index_size = max_index_size;
+		this.max_search_hits = max_search_hits;
+		this.full_index_after_modified = full_index_after_modified;
+
+		if ( listener != null ) listeners.add( listener );
+
+		// Start an index right away
+		indexer_scheduled = new AtomicBoolean( true );
+		SharedThreadPool.INSTANCE.execute( new Indexer( 0, 0 ) );
+
+		// String checking for changes after a couple seconds
+		file_change_future = SharedThreadPool.INSTANCE.scheduleAtFixedRate(
+				new FileChangeChecker(), 2, 1, TimeUnit.SECONDS );
+	}
 
 	/**
 	 * Create the indexer and do an initial indexing of the file.
@@ -82,33 +146,7 @@ public class LogIndexer<A> implements LogAccess<A> {
 		@Nullable LogIndexListener<A> listener,
 		int max_index_size, int max_search_hits,
 		@Nullable final Runnable all_listeners_removed ) {
-
-		Objects.requireNonNull( file );
-
-		this.file = file;
-		this.attachment = attachment;
-		this.listeners = ListenerSupport.forType( LogIndexListener.class )
-			.errorHandler(
-				new ErrorCountDeliveryErrorHandler<LogIndexListener>( 3, true ) {
-					@Override
-					public void lastListenerRemoved() {
-						if ( all_listeners_removed != null ) all_listeners_removed.run();
-					}
-				} )
-			.asynchronous()
-			.build();
-		this.max_index_size = max_index_size;
-		this.max_search_hits = max_search_hits;
-
-		if ( listener != null ) listeners.add( listener );
-
-		// Start an index right away
-		indexer_scheduled = new AtomicBoolean( true );
-		SharedThreadPool.INSTANCE.execute( new Indexer( 0, 0 ) );
-
-		// String checking for changes after a couple seconds
-		file_change_future = SharedThreadPool.INSTANCE.scheduleAtFixedRate(
-			new FileChangeChecker(), 2, 1, TimeUnit.SECONDS );
+		this( file, attachment, listener, max_index_size, max_search_hits, false, all_listeners_removed );
 	}
 
 
@@ -158,8 +196,10 @@ public class LogIndexer<A> implements LogAccess<A> {
 		final String[] to_return = new String[ count ];
 
 		streamLines( start, ( line, line_index ) -> {
-			LOG.debug( "Reading {} lines starting at {}, got line {}: {}", count, start,
-				line_index, line );
+			if ( LOG.isTraceEnabled() ) {
+				LOG.trace("Reading {} lines starting at {}, got line {}: {}", count, start,
+						line_index, line);
+			}
 //				if ( processed == 0 ) {
 //					System.out.println( "Read line: " + start + "->" + line );
 //				}
@@ -239,9 +279,9 @@ public class LogIndexer<A> implements LogAccess<A> {
 	public void stopSearch( int search_id ) {
 		search_lock.lock();
 		try {
-			Searcher searcher = searchers.get( search_id );
+			Searcher<?> searcher = searchers.remove(search_id);
 			if ( searcher != null ) {
-				searcher.halt();
+				searcher.close();
 			}
 		}
 		finally {
@@ -282,6 +322,19 @@ public class LogIndexer<A> implements LogAccess<A> {
 	@SuppressWarnings( "WeakerAccess" )
 	protected InputStream openStreamForFile( File file ) throws IOException {
 		return new FileInputStream( file );
+	}
+
+	/**
+	 * Sets the full/partial index handling for file changes.
+	 * @param full_index_after_modified When true, full indexing of the file will occur
+	 *                                  whenever the last modified time is updated. When
+	 *                                  false, full indexing occurs when the file shrinks,
+	 *                                  and partial indexing from the last indexed
+	 *                                  position occurs when the file grows.
+	 */
+	@Override
+	public void setFullIndexAfterModified( boolean full_index_after_modified ) {
+		this.full_index_after_modified = full_index_after_modified;
 	}
 
 
@@ -334,8 +387,14 @@ public class LogIndexer<A> implements LogAccess<A> {
 						}
 
 						long to_skip = location;
-						while( to_skip > 0 ) {
-							to_skip -= in.skip( location );
+						while ( to_skip > 0 ) {
+							long skipped = in.skip( to_skip );
+							if ( skipped <= 0 ) {
+								// fallback: read+discard one byte or break with error to avoid infinite loop
+								if ( in.read() == -1 ) break;
+								skipped = 1;
+							}
+							to_skip -= skipped;
 						}
 					}
 				}
@@ -350,8 +409,11 @@ public class LogIndexer<A> implements LogAccess<A> {
 
 			String line;
 			while( ( line = bin.readLine() ) != null ) {
-				LOG.debug( "Current line \"{}\": {} (start: {})", current_line, line,
-					start );
+
+				if ( LOG.isTraceEnabled() ) {
+					LOG.trace("Current line \"{}\": {} (start: {})", current_line, line,
+							start);
+				}
 
 //				System.out.println( "current_line " + current_line + ": " + line +
 //					" (start: " + start + ")" );
@@ -464,71 +526,70 @@ public class LogIndexer<A> implements LogAccess<A> {
 						row_skip_mod = 1;
 					}
 
-					// This is not very efficient, but buffering messes up the position
-
 					// NOTE: Use the same logic as BufferedReader for new lines:
 					//       "A line is considered to be terminated by any one
 					//       of a line feed ('\n'), a carriage return ('\r'), or a
 					//       carriage return followed immediately by a linefeed."
 					NewlineState pending_newline_state =
 						NewlineState.WAS_NOT_NEWLINE;
-					int bite;
-					while( ( bite = in.read() ) != -1 ) {
-//						System.out.println( "Position " + ( in.position() - 1 ) +
-//							": " + ( char ) bite + " (0x" +
-//							Integer.toHexString( bite ) + ")" );
-						bytes_since_newline++;
 
-						boolean mark_as_new_line = false;
+					byte[] buf = new byte[8192];
+					int read;
+					while ( ( read = in.read( buf ) ) != -1 ) {
+						final long base_pos = in.position() - read;
 
+						for ( int i = 0; i < read; i++ ) {
+							final int bite = buf[i] & 0xFF;
+							final long byte_pos = base_pos + i; // absolute position of this byte
 
-						switch( pending_newline_state ) {
-							case WAS_NOT_NEWLINE:
-								break;
-							case WAS_NEWLINE:
-								mark_as_new_line = true;
-								break;
-							case WAS_CR:
-								// If the current bite is a newline and a CR preceded us,
-								// we'll mark the newline on the next character.
-								if ( bite == '\n' ) {
+							bytes_since_newline++;
+
+							boolean mark_as_new_line = false;
+
+							switch ( pending_newline_state ) {
+								case WAS_NOT_NEWLINE:
+									break;
+								case WAS_NEWLINE:
+									mark_as_new_line = true;
+									break;
+								case WAS_CR:
+									// If the current bite is a newline and a CR preceded us,
+									// we'll mark the newline on the next character.
+									if ( bite == '\n' ) {
+										pending_newline_state = NewlineState.WAS_NEWLINE;
+										continue;
+									} else {
+										mark_as_new_line = true;
+									}
+									break;
+							}
+
+							switch ( bite ) {
+								case '\r':
+									pending_newline_state = NewlineState.WAS_CR;
+									break;
+								case '\n':
 									pending_newline_state = NewlineState.WAS_NEWLINE;
-									continue;
+									break;
+								default:
+									pending_newline_state = NewlineState.WAS_NOT_NEWLINE;
+									break;
+							}
+
+							if ( !mark_as_new_line ) continue;
+
+							bytes_since_newline = 0;
+
+							if ( LOG.isTraceEnabled() ) {
+								LOG.trace("Newline marked at: {}", byte_pos);
+							}
+							line++;
+							if ( line % row_skip_mod == 0 ) {
+								row_index_map.put( line, byte_pos );
+								if ( row_index_map.size() > max_index_size ) {
+									row_skip_mod = increaseRowSkipMod( row_skip_mod, line );
+									printRowIndexMap( "after grow" );
 								}
-								else mark_as_new_line = true;
-								break;
-						}
-
-						switch( bite ) {
-							case '\r':
-								pending_newline_state = NewlineState.WAS_CR;
-								break;
-							case '\n':
-								pending_newline_state = NewlineState.WAS_NEWLINE;
-								break;
-							default:
-								pending_newline_state = NewlineState.WAS_NOT_NEWLINE;
-								break;
-						}
-
-						if ( !mark_as_new_line ) continue;
-
-						bytes_since_newline = 0;
-
-						final long position = in.position() - 1;
-						if ( LOG.isTraceEnabled() ) {
-							LOG.trace( "Newline marked at: {}", position );
-						}
-
-						line++;
-
-						if ( line % row_skip_mod == 0 ) {
-							row_index_map.put( line, position );
-//							printRowIndexMap( "after add" );
-
-							if ( row_index_map.size() > max_index_size ) {
-								row_skip_mod = increaseRowSkipMod( row_skip_mod, line );
-								printRowIndexMap( "after grow" );
 							}
 						}
 					}
@@ -538,7 +599,21 @@ public class LogIndexer<A> implements LogAccess<A> {
 				}
 				
 				num_lines = line + ( bytes_since_newline > 0 ? 1 : 0 );
-				last_file_length = file.length();
+
+				// Try to read both length and last modified in one operation
+				// If we read separately and get an old length and a new last modified, it will be handled
+				// on the next check.
+				try {
+					BasicFileAttributes a = Files.readAttributes( file.toPath(), BasicFileAttributes.class );
+					last_file_length = a.size();
+					last_last_modified = a.lastModifiedTime().toMillis();
+				} catch ( IOException ex ) {
+					if ( LOG.isWarnEnabled() ) {
+						LOG.warn( "Error reading file attributes for file: {} ", file.toPath(), ex );
+					}
+					last_file_length = file.length();
+					last_last_modified = file.lastModified();
+				}
 
 				if ( LOG.isDebugEnabled() ) {
 					LOG.debug( "Found {} lines (starting position was {})", num_lines,
@@ -617,7 +692,7 @@ public class LogIndexer<A> implements LogAccess<A> {
 
 	/**
 	 * Checks the file to see if the size has changed (indicating we need to do additional
-	 * indexing).
+	 * indexing). Also checks for in-place edits to a file in which the size does not change.
 	 *
 	 * NOTE: this can be MUCH more efficient with Java 7's file system watcher mechanism.
 	 */
@@ -627,24 +702,84 @@ public class LogIndexer<A> implements LogAccess<A> {
 			// Don't check for a change if we're currently indexing
 			if ( indexer_scheduled.get() ) return;
 
-			long file_length = file.length();
+			long file_length;
+			long last_modified;
+
+			// Try to read both length and last modified in one operation
+			// Since it's still possible that we could get the old length value and new last modified value,
+			// which would look like an in-place edit until the length is updated,
+			// we handle that with a second poll to confirm.
+			try {
+				BasicFileAttributes a = Files.readAttributes( file.toPath(), BasicFileAttributes.class );
+				file_length = a.size();
+				last_modified = a.lastModifiedTime().toMillis();
+			} catch ( IOException ex ) {
+				if ( LOG.isWarnEnabled() ) {
+					LOG.warn( "Error reading file attributes for file: {} ", file.toPath(), ex );
+				}
+				file_length = file.length();
+				last_modified = file.lastModified();
+			}
 			
 			long last_file_length = LogIndexer.this.last_file_length;
-			if ( file_length == last_file_length ) {
-//				System.out.println( "File unchanged" );
-				return;
-			}
-			
-			// If the file size has decreased, the file has rotated. Do a full index.
+			long last_last_modified = LogIndexer.this.last_last_modified;
+
 			int starting_line;
 			long starting_position;
-			if ( file_length < last_file_length ) {
-				starting_line = 0;
-				starting_position = 0;
-			}
-			else {
-				starting_line = num_lines;
-				starting_position = last_file_length;
+
+			boolean length_same = ( file_length == last_file_length );
+			boolean modified_same = ( last_modified == last_last_modified );
+
+			// When full_index_after_modified==false, we assume any updates will also increase the
+			// file length as new lines are added. But do not ignore any in-place edits even in this mode.
+			if ( length_same ) {
+				if ( modified_same ) {
+					//				System.out.println( "File unchanged" );
+					pending_same_length_modified = false;
+					return;
+				}
+
+				// Handle lagging length updates and confirm on second consecutive poll
+				// before treating as in-place edit (full index)
+
+				// treat as in-place edit
+				if ( pending_same_length_modified && pending_modified_value == last_modified) {
+					pending_same_length_modified = false;
+					starting_line = 0;
+					starting_position = 0;
+
+				// record and wait for next poll
+				} else {
+					pending_same_length_modified = true;
+					pending_modified_value = last_modified;
+					return;
+				}
+
+			// A change in length can be handled immediately
+			} else {
+				// clear pending marker
+				pending_same_length_modified = false;
+
+				// If the file size has increased, we perform either a full or partial index
+				if ( file_length > last_file_length ) {
+					// Full index
+					if ( full_index_after_modified ) {
+						starting_line = 0;
+						starting_position = 0;
+
+					// Partial index
+					} else {
+						starting_line = num_lines;
+						starting_position = last_file_length;
+					}
+
+				// If the file size has decreased, the file has likely rotated.
+				// If the file was updated without changing its length, then the file likely had an in place edit.
+				// Do a full index for either case.
+				} else {
+					starting_line = 0;
+					starting_position = 0;
+				}
 			}
 
 			if ( indexer_scheduled.compareAndSet( false, true ) ) {

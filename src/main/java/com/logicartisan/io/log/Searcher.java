@@ -439,7 +439,5 @@ class Searcher<A>
 	}
 
 	@Override
-	public void lastListenerRemoved() {
-		close();
-	}
+	public void lastListenerRemoved() { }
 }

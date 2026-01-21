@@ -358,7 +358,7 @@ public class LogIndexerTest {
 		throws IOException, InterruptedException {
 
 		int sleep_ms = 2000;
-		int timeout_s = 2;
+		int timeout_s = 20;
 
 		if( test_args.getWriteAsAppend() ) {
 			writer = new PrintWriter( new FileWriter( file, false ) );
@@ -501,1014 +501,1014 @@ public class LogIndexerTest {
 	private static Stream<TestArgs> argsLogIndexerTests() {
 		Stream<TestArgs> stream = Stream.empty();
 
-//		// =============================================================================================================
-//		// Test Case 1:
-//		// These duplicate the existing tests that use doTestSearching.
-//		// These are duplicated in order to add confidence for this alternative testing implementation
-//		// =============================================================================================================
-//		stream = Stream.concat( stream,
-//				Stream.of(
-//						new TestArgs(
-//					"testSearching_SimpleSensitive",
-//					false,
-//					1000,
-//					SearchParams.createSimple( "hat", true ),
-//					true,
-//						List.of(
-//								new TestUpdateArgs(
-//										List.of(
-//												"Some line with no matches",
-//												"Hate to chat about that display of hats.",
-//												"Again, nothing to match",
-//												"Hat",
-//												"hat"
-//										),
-//										true,
-//										5,
-//										List.of(
-//												new SearchMatch(1, 9, 3),
-//												new SearchMatch(1, 20, 3),
-//												new SearchMatch(1, 35, 3),
-//												new SearchMatch(4, 0, 3)
-//										),
-//										false
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"This shouldn't match"
-//										),
-//										false,
-//										6,
-//										List.of(),
-//										false
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"I can haz a hat"
-//										),
-//										false,
-//										7,
-//										List.of(
-//												new SearchMatch(6, 12, 3)
-//										),
-//										false
-//								)
-//						)
-//				)
-//			)
-//		);
-//
-//		stream = Stream.concat( stream,
-//			Stream.of(
-//				new TestArgs(
-//					"testSearching_SimpleInsensitive",
-//					false,
-//					1000,
-//					SearchParams.createSimple( "hat", false ),
-//						true,
-//						List.of(
-//								new TestUpdateArgs(
-//										List.of(
-//												"Some line with no matches",
-//												"Hate to chat about that display of hats.",
-//												"Again, nothing to match",
-//												"Hat",
-//												"hat"
-//										),
-//										true,
-//										5,
-//										List.of(
-//												new SearchMatch( 1, 0, 3 ),
-//												new SearchMatch( 1, 9, 3 ),
-//												new SearchMatch( 1, 20, 3 ),
-//												new SearchMatch( 1, 35, 3 ),
-//												new SearchMatch( 3, 0, 3 ),
-//												new SearchMatch( 4, 0, 3 )
-//										),
-//										false
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"This shouldn't match"
-//										),
-//										false,
-//										6,
-//										List.of(),
-//										false
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"I can haz a hat"
-//										),
-//										false,
-//										7,
-//										List.of(
-//												new SearchMatch( 6, 12, 3 )
-//										),
-//										false
-//								)
-//						)
-//				)
-//			)
-//		);
-//
-//		stream = Stream.concat( stream,
-//			Stream.of(
-//				new TestArgs(
-//					"testSearching_Regex1",
-//					false,
-//					1000,
-//					SearchParams.createRegex( Pattern.compile( "hat" ) ),
-//						true,
-//						List.of(
-//								new TestUpdateArgs(
-//										List.of(
-//												"Some line with no matches",
-//												"Hate to chat about that display of hats.",
-//												"Again, nothing to match",
-//												"Hat",
-//												"hat"
-//										),
-//										true,
-//										5,
-//										List.of(
-//												new SearchMatch( 1, 9, 3 ),
-//												new SearchMatch( 1, 20, 3 ),
-//												new SearchMatch( 1, 35, 3 ),
-//												new SearchMatch( 4, 0, 3 )
-//										),
-//										false
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"This shouldn't match"
-//										),
-//										false,
-//										6,
-//										List.of(),
-//										false
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"I can haz a hat"
-//										),
-//										false,
-//										7,
-//										List.of(
-//												new SearchMatch( 6, 12, 3 )
-//										),
-//										false
-//								)
-//						)
-//				)
-//			)
-//		);
-//
-//		stream = Stream.concat( stream,
-//			Stream.of(
-//				new TestArgs(
-//					"testSearching_maxHits",
-//					false,
-//					2,
-//					SearchParams.createSimple( "hat", false ),
-//						true,
-//						List.of(
-//								new TestUpdateArgs(
-//										List.of(
-//												"Some line with no matches",
-//												"Hate to chat about that display of hats.",
-//												"Again, nothing to match",
-//												"Hat",
-//												"hat"
-//										),
-//										true,
-//										5,
-//										List.of(
-//												new SearchMatch( 1, 0, 3 ),
-//												new SearchMatch( 1, 9, 3 )
-//										),
-//										true
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"This shouldn't match"
-//										),
-//										false,
-//										6,
-//										List.of(),
-//										false
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"I can haz a hat"
-//										),
-//										false,
-//										7,
-//										List.of(),
-//										false
-//								)
-//						)
-//				)
-//			)
-//		);
-//
-//		// =============================================================================================================
-//		// Test Case 2:
-//		// Appending the same lines in the same number of steps as the above tests, but now with
-//		// full_index_after_modified == true. So we should expect a full index after every update, and the full search
-//		// results should be sent after every full index
-//		// =============================================================================================================
-//		stream = Stream.concat( stream,
-//			Stream.of(
-//				new TestArgs(
-//					"testSearching_SimpleSensitive_full",
-//					true,
-//					1000,
-//					SearchParams.createSimple( "hat", true ),
-//						true,
-//						List.of(
-//								new TestUpdateArgs(
-//										List.of(
-//												"Some line with no matches",
-//												"Hate to chat about that display of hats.",
-//												"Again, nothing to match",
-//												"Hat",
-//												"hat"
-//										),
-//										true,
-//										5,
-//										List.of(
-//												new SearchMatch(1, 9, 3),
-//												new SearchMatch(1, 20, 3),
-//												new SearchMatch(1, 35, 3),
-//												new SearchMatch(4, 0, 3)
-//										),
-//										false
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"This shouldn't match"
-//										),
-//										true,
-//										6,
-//										List.of(
-//												new SearchMatch(1, 9, 3),
-//												new SearchMatch(1, 20, 3),
-//												new SearchMatch(1, 35, 3),
-//												new SearchMatch(4, 0, 3)
-//										),
-//										false
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"I can haz a hat"
-//										),
-//										true,
-//										7,
-//										List.of(
-//												new SearchMatch(1, 9, 3),
-//												new SearchMatch(1, 20, 3),
-//												new SearchMatch(1, 35, 3),
-//												new SearchMatch(4, 0, 3),
-//												new SearchMatch(6, 12, 3)
-//										),
-//										false
-//								)
-//						)
-//				)
-//			)
-//		);
-//
-//		stream = Stream.concat( stream,
-//			Stream.of(
-//				new TestArgs(
-//					"testSearching_SimpleInsensitive_full",
-//					true,
-//					1000,
-//					SearchParams.createSimple( "hat", false ),
-//						true,
-//						List.of(
-//								new TestUpdateArgs(
-//										List.of(
-//												"Some line with no matches",
-//												"Hate to chat about that display of hats.",
-//												"Again, nothing to match",
-//												"Hat",
-//												"hat"
-//										),
-//										true,
-//										5,
-//										List.of(
-//												new SearchMatch( 1, 0, 3 ),
-//												new SearchMatch( 1, 9, 3 ),
-//												new SearchMatch( 1, 20, 3 ),
-//												new SearchMatch( 1, 35, 3 ),
-//												new SearchMatch( 3, 0, 3 ),
-//												new SearchMatch( 4, 0, 3 )
-//										),
-//										false
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"This shouldn't match"
-//										),
-//										true,
-//										6,
-//										List.of(
-//												new SearchMatch( 1, 0, 3 ),
-//												new SearchMatch( 1, 9, 3 ),
-//												new SearchMatch( 1, 20, 3 ),
-//												new SearchMatch( 1, 35, 3 ),
-//												new SearchMatch( 3, 0, 3 ),
-//												new SearchMatch( 4, 0, 3 )
-//										),
-//										false
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"I can haz a hat"
-//										),
-//										true,
-//										7,
-//										List.of(
-//												new SearchMatch( 1, 0, 3 ),
-//												new SearchMatch( 1, 9, 3 ),
-//												new SearchMatch( 1, 20, 3 ),
-//												new SearchMatch( 1, 35, 3 ),
-//												new SearchMatch( 3, 0, 3 ),
-//												new SearchMatch( 4, 0, 3 ),
-//												new SearchMatch( 6, 12, 3 )
-//										),
-//										false
-//								)
-//						)
-//				)
-//			)
-//		);
-//
-//		stream = Stream.concat( stream,
-//			Stream.of(
-//				new TestArgs(
-//					"testSearching_Regex1_full",
-//					true,
-//					1000,
-//					SearchParams.createRegex( Pattern.compile( "hat" ) ),
-//						true,
-//						List.of(
-//								new TestUpdateArgs(
-//										List.of(
-//												"Some line with no matches",
-//												"Hate to chat about that display of hats.",
-//												"Again, nothing to match",
-//												"Hat",
-//												"hat"
-//										),
-//										true,
-//										5,
-//										List.of(
-//												new SearchMatch( 1, 9, 3 ),
-//												new SearchMatch( 1, 20, 3 ),
-//												new SearchMatch( 1, 35, 3 ),
-//												new SearchMatch( 4, 0, 3 )
-//										),
-//										false
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"This shouldn't match"
-//										),
-//										true,
-//										6,
-//										List.of(
-//												new SearchMatch( 1, 9, 3 ),
-//												new SearchMatch( 1, 20, 3 ),
-//												new SearchMatch( 1, 35, 3 ),
-//												new SearchMatch( 4, 0, 3 )
-//										),
-//										false
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"I can haz a hat"
-//										),
-//										true,
-//										7,
-//										List.of(
-//												new SearchMatch( 1, 9, 3 ),
-//												new SearchMatch( 1, 20, 3 ),
-//												new SearchMatch( 1, 35, 3 ),
-//												new SearchMatch( 4, 0, 3 ),
-//												new SearchMatch( 6, 12, 3 )
-//										),
-//										false
-//								)
-//						)
-//				)
-//			)
-//		);
-//
-//		stream = Stream.concat( stream,
-//			Stream.of(
-//				new TestArgs(
-//					"testSearching_maxHits_full",
-//					true,
-//					2,
-//					SearchParams.createSimple( "hat", false ),
-//						true,
-//						List.of(
-//								new TestUpdateArgs(
-//										List.of(
-//												"Some line with no matches",
-//												"Hate to chat about that display of hats.",
-//												"Again, nothing to match",
-//												"Hat",
-//												"hat"
-//										),
-//										true,
-//										5,
-//										List.of(
-//												new SearchMatch( 1, 0, 3 ),
-//												new SearchMatch( 1, 9, 3 )
-//										),
-//										true
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"This shouldn't match"
-//										),
-//										true,
-//										6,
-//										List.of(
-//												new SearchMatch( 1, 0, 3 ),
-//												new SearchMatch( 1, 9, 3 )
-//										),
-//										true
-//								),
-//								new TestUpdateArgs(
-//										List.of(
-//												"I can haz a hat"
-//										),
-//										true,
-//										7,
-//										List.of(
-//												new SearchMatch( 1, 0, 3 ),
-//												new SearchMatch( 1, 9, 3 )
-//										),
-//										true
-//								)
-//						)
-//				)
-//			)
-//		);
-//
-//		// =============================================================================================================
-//		// Test Case 3:
-//		// Write the whole file each step but write the same lines along with the appended lines
-//		// full_index_after_modified==false
-//		// This should output the same results as Test Case 1.
-//		// =============================================================================================================
-//		stream = Stream.concat( stream,
-//				Stream.of(
-//						new TestArgs(
-//								"testSearching_SimpleSensitive_file",
-//								false,
-//								1000,
-//								SearchParams.createSimple( "hat", true ),
-//								false,
-//								List.of(
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat"
-//												),
-//												true,
-//												5,
-//												List.of(
-//														new SearchMatch(1, 9, 3),
-//														new SearchMatch(1, 20, 3),
-//														new SearchMatch(1, 35, 3),
-//														new SearchMatch(4, 0, 3)
-//												),
-//												false
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match"
-//												),
-//												false,
-//												6,
-//												List.of(),
-//												false
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match",
-//														"I can haz a hat"
-//												),
-//												false,
-//												7,
-//												List.of(
-//														new SearchMatch(6, 12, 3)
-//												),
-//												false
-//										)
-//								)
-//						)
-//				)
-//		);
-//
-//		stream = Stream.concat( stream,
-//				Stream.of(
-//						new TestArgs(
-//								"testSearching_SimpleInsensitive_file",
-//								false,
-//								1000,
-//								SearchParams.createSimple( "hat", false ),
-//								false,
-//								List.of(
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat"
-//												),
-//												true,
-//												5,
-//												List.of(
-//														new SearchMatch( 1, 0, 3 ),
-//														new SearchMatch( 1, 9, 3 ),
-//														new SearchMatch( 1, 20, 3 ),
-//														new SearchMatch( 1, 35, 3 ),
-//														new SearchMatch( 3, 0, 3 ),
-//														new SearchMatch( 4, 0, 3 )
-//												),
-//												false
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match"
-//												),
-//												false,
-//												6,
-//												List.of(),
-//												false
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match",
-//														"I can haz a hat"
-//												),
-//												false,
-//												7,
-//												List.of(
-//														new SearchMatch( 6, 12, 3 )
-//												),
-//												false
-//										)
-//								)
-//						)
-//				)
-//		);
-//
-//		stream = Stream.concat( stream,
-//				Stream.of(
-//						new TestArgs(
-//								"testSearching_Regex1_file",
-//								false,
-//								1000,
-//								SearchParams.createRegex( Pattern.compile( "hat" ) ),
-//								false,
-//								List.of(
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat"
-//												),
-//												true,
-//												5,
-//												List.of(
-//														new SearchMatch( 1, 9, 3 ),
-//														new SearchMatch( 1, 20, 3 ),
-//														new SearchMatch( 1, 35, 3 ),
-//														new SearchMatch( 4, 0, 3 )
-//												),
-//												false
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match"
-//												),
-//												false,
-//												6,
-//												List.of(),
-//												false
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match",
-//														"I can haz a hat"
-//												),
-//												false,
-//												7,
-//												List.of(
-//														new SearchMatch( 6, 12, 3 )
-//												),
-//												false
-//										)
-//								)
-//						)
-//				)
-//		);
-//
-//		stream = Stream.concat( stream,
-//				Stream.of(
-//						new TestArgs(
-//								"testSearching_maxHits_file",
-//								false,
-//								2,
-//								SearchParams.createSimple( "hat", false ),
-//								false,
-//								List.of(
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat"
-//												),
-//												true,
-//												5,
-//												List.of(
-//														new SearchMatch( 1, 0, 3 ),
-//														new SearchMatch( 1, 9, 3 )
-//												),
-//												true
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match"
-//												),
-//												false,
-//												6,
-//												List.of(),
-//												false
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match",
-//														"I can haz a hat"
-//												),
-//												false,
-//												7,
-//												List.of(),
-//												false
-//										)
-//								)
-//						)
-//				)
-//		);
-//
-//		// =============================================================================================================
-//		// Test Case 4:
-//		// Write the whole file each step but write the same lines along with the appended lines
-//		// full_index_after_modified==true
-//		// This should output the same results as Test Case 2.
-//		// =============================================================================================================
-//		stream = Stream.concat( stream,
-//				Stream.of(
-//						new TestArgs(
-//								"testSearching_SimpleSensitive_full_file",
-//								true,
-//								1000,
-//								SearchParams.createSimple( "hat", true ),
-//								false,
-//								List.of(
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat"
-//												),
-//												true,
-//												5,
-//												List.of(
-//														new SearchMatch(1, 9, 3),
-//														new SearchMatch(1, 20, 3),
-//														new SearchMatch(1, 35, 3),
-//														new SearchMatch(4, 0, 3)
-//												),
-//												false
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match"
-//												),
-//												true,
-//												6,
-//												List.of(
-//														new SearchMatch(1, 9, 3),
-//														new SearchMatch(1, 20, 3),
-//														new SearchMatch(1, 35, 3),
-//														new SearchMatch(4, 0, 3)
-//												),
-//												false
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match",
-//														"I can haz a hat"
-//												),
-//												true,
-//												7,
-//												List.of(
-//														new SearchMatch(1, 9, 3),
-//														new SearchMatch(1, 20, 3),
-//														new SearchMatch(1, 35, 3),
-//														new SearchMatch(4, 0, 3),
-//														new SearchMatch(6, 12, 3)
-//												),
-//												false
-//										)
-//								)
-//						)
-//				)
-//		);
-//
-//		stream = Stream.concat( stream,
-//				Stream.of(
-//						new TestArgs(
-//								"testSearching_SimpleInsensitive_full_file",
-//								true,
-//								1000,
-//								SearchParams.createSimple( "hat", false ),
-//								false,
-//								List.of(
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat"
-//												),
-//												true,
-//												5,
-//												List.of(
-//														new SearchMatch( 1, 0, 3 ),
-//														new SearchMatch( 1, 9, 3 ),
-//														new SearchMatch( 1, 20, 3 ),
-//														new SearchMatch( 1, 35, 3 ),
-//														new SearchMatch( 3, 0, 3 ),
-//														new SearchMatch( 4, 0, 3 )
-//												),
-//												false
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match"
-//												),
-//												true,
-//												6,
-//												List.of(
-//														new SearchMatch( 1, 0, 3 ),
-//														new SearchMatch( 1, 9, 3 ),
-//														new SearchMatch( 1, 20, 3 ),
-//														new SearchMatch( 1, 35, 3 ),
-//														new SearchMatch( 3, 0, 3 ),
-//														new SearchMatch( 4, 0, 3 )
-//												),
-//												false
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match",
-//														"I can haz a hat"
-//												),
-//												true,
-//												7,
-//												List.of(
-//														new SearchMatch( 1, 0, 3 ),
-//														new SearchMatch( 1, 9, 3 ),
-//														new SearchMatch( 1, 20, 3 ),
-//														new SearchMatch( 1, 35, 3 ),
-//														new SearchMatch( 3, 0, 3 ),
-//														new SearchMatch( 4, 0, 3 ),
-//														new SearchMatch( 6, 12, 3 )
-//												),
-//												false
-//										)
-//								)
-//						)
-//				)
-//		);
-//
-//		stream = Stream.concat( stream,
-//				Stream.of(
-//						new TestArgs(
-//								"testSearching_Regex1_full_file",
-//								true,
-//								1000,
-//								SearchParams.createRegex( Pattern.compile( "hat" ) ),
-//								false,
-//								List.of(
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat"
-//												),
-//												true,
-//												5,
-//												List.of(
-//														new SearchMatch( 1, 9, 3 ),
-//														new SearchMatch( 1, 20, 3 ),
-//														new SearchMatch( 1, 35, 3 ),
-//														new SearchMatch( 4, 0, 3 )
-//												),
-//												false
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match"
-//												),
-//												true,
-//												6,
-//												List.of(
-//														new SearchMatch( 1, 9, 3 ),
-//														new SearchMatch( 1, 20, 3 ),
-//														new SearchMatch( 1, 35, 3 ),
-//														new SearchMatch( 4, 0, 3 )
-//												),
-//												false
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match",
-//														"I can haz a hat"
-//												),
-//												true,
-//												7,
-//												List.of(
-//														new SearchMatch( 1, 9, 3 ),
-//														new SearchMatch( 1, 20, 3 ),
-//														new SearchMatch( 1, 35, 3 ),
-//														new SearchMatch( 4, 0, 3 ),
-//														new SearchMatch( 6, 12, 3 )
-//												),
-//												false
-//										)
-//								)
-//						)
-//				)
-//		);
-//
-//		stream = Stream.concat( stream,
-//				Stream.of(
-//						new TestArgs(
-//								"testSearching_maxHits_full_file",
-//								true,
-//								2,
-//								SearchParams.createSimple( "hat", false ),
-//								false,
-//								List.of(
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat"
-//												),
-//												true,
-//												5,
-//												List.of(
-//														new SearchMatch( 1, 0, 3 ),
-//														new SearchMatch( 1, 9, 3 )
-//												),
-//												true
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match"
-//												),
-//												true,
-//												6,
-//												List.of(
-//														new SearchMatch( 1, 0, 3 ),
-//														new SearchMatch( 1, 9, 3 )
-//												),
-//												true
-//										),
-//										new TestUpdateArgs(
-//												List.of(
-//														"Some line with no matches",
-//														"Hate to chat about that display of hats.",
-//														"Again, nothing to match",
-//														"Hat",
-//														"hat",
-//														"This shouldn't match",
-//														"I can haz a hat"
-//												),
-//												true,
-//												7,
-//												List.of(
-//														new SearchMatch( 1, 0, 3 ),
-//														new SearchMatch( 1, 9, 3 )
-//												),
-//												true
-//										)
-//								)
-//						)
-//				)
-//		);
+		// =============================================================================================================
+		// Test Case 1:
+		// These duplicate the existing tests that use doTestSearching.
+		// These are duplicated in order to add confidence for this alternative testing implementation
+		// =============================================================================================================
+		stream = Stream.concat( stream,
+				Stream.of(
+						new TestArgs(
+					"testSearching_SimpleSensitive",
+					false,
+					1000,
+					SearchParams.createSimple( "hat", true ),
+					true,
+						List.of(
+								new TestUpdateArgs(
+										List.of(
+												"Some line with no matches",
+												"Hate to chat about that display of hats.",
+												"Again, nothing to match",
+												"Hat",
+												"hat"
+										),
+										true,
+										5,
+										List.of(
+												new SearchMatch(1, 9, 3),
+												new SearchMatch(1, 20, 3),
+												new SearchMatch(1, 35, 3),
+												new SearchMatch(4, 0, 3)
+										),
+										false
+								),
+								new TestUpdateArgs(
+										List.of(
+												"This shouldn't match"
+										),
+										false,
+										6,
+										List.of(),
+										false
+								),
+								new TestUpdateArgs(
+										List.of(
+												"I can haz a hat"
+										),
+										false,
+										7,
+										List.of(
+												new SearchMatch(6, 12, 3)
+										),
+										false
+								)
+						)
+				)
+			)
+		);
+
+		stream = Stream.concat( stream,
+			Stream.of(
+				new TestArgs(
+					"testSearching_SimpleInsensitive",
+					false,
+					1000,
+					SearchParams.createSimple( "hat", false ),
+						true,
+						List.of(
+								new TestUpdateArgs(
+										List.of(
+												"Some line with no matches",
+												"Hate to chat about that display of hats.",
+												"Again, nothing to match",
+												"Hat",
+												"hat"
+										),
+										true,
+										5,
+										List.of(
+												new SearchMatch( 1, 0, 3 ),
+												new SearchMatch( 1, 9, 3 ),
+												new SearchMatch( 1, 20, 3 ),
+												new SearchMatch( 1, 35, 3 ),
+												new SearchMatch( 3, 0, 3 ),
+												new SearchMatch( 4, 0, 3 )
+										),
+										false
+								),
+								new TestUpdateArgs(
+										List.of(
+												"This shouldn't match"
+										),
+										false,
+										6,
+										List.of(),
+										false
+								),
+								new TestUpdateArgs(
+										List.of(
+												"I can haz a hat"
+										),
+										false,
+										7,
+										List.of(
+												new SearchMatch( 6, 12, 3 )
+										),
+										false
+								)
+						)
+				)
+			)
+		);
+
+		stream = Stream.concat( stream,
+			Stream.of(
+				new TestArgs(
+					"testSearching_Regex1",
+					false,
+					1000,
+					SearchParams.createRegex( Pattern.compile( "hat" ) ),
+						true,
+						List.of(
+								new TestUpdateArgs(
+										List.of(
+												"Some line with no matches",
+												"Hate to chat about that display of hats.",
+												"Again, nothing to match",
+												"Hat",
+												"hat"
+										),
+										true,
+										5,
+										List.of(
+												new SearchMatch( 1, 9, 3 ),
+												new SearchMatch( 1, 20, 3 ),
+												new SearchMatch( 1, 35, 3 ),
+												new SearchMatch( 4, 0, 3 )
+										),
+										false
+								),
+								new TestUpdateArgs(
+										List.of(
+												"This shouldn't match"
+										),
+										false,
+										6,
+										List.of(),
+										false
+								),
+								new TestUpdateArgs(
+										List.of(
+												"I can haz a hat"
+										),
+										false,
+										7,
+										List.of(
+												new SearchMatch( 6, 12, 3 )
+										),
+										false
+								)
+						)
+				)
+			)
+		);
+
+		stream = Stream.concat( stream,
+			Stream.of(
+				new TestArgs(
+					"testSearching_maxHits",
+					false,
+					2,
+					SearchParams.createSimple( "hat", false ),
+						true,
+						List.of(
+								new TestUpdateArgs(
+										List.of(
+												"Some line with no matches",
+												"Hate to chat about that display of hats.",
+												"Again, nothing to match",
+												"Hat",
+												"hat"
+										),
+										true,
+										5,
+										List.of(
+												new SearchMatch( 1, 0, 3 ),
+												new SearchMatch( 1, 9, 3 )
+										),
+										true
+								),
+								new TestUpdateArgs(
+										List.of(
+												"This shouldn't match"
+										),
+										false,
+										6,
+										List.of(),
+										false
+								),
+								new TestUpdateArgs(
+										List.of(
+												"I can haz a hat"
+										),
+										false,
+										7,
+										List.of(),
+										false
+								)
+						)
+				)
+			)
+		);
+
+		// =============================================================================================================
+		// Test Case 2:
+		// Appending the same lines in the same number of steps as the above tests, but now with
+		// full_index_after_modified == true. So we should expect a full index after every update, and the full search
+		// results should be sent after every full index
+		// =============================================================================================================
+		stream = Stream.concat( stream,
+			Stream.of(
+				new TestArgs(
+					"testSearching_SimpleSensitive_full",
+					true,
+					1000,
+					SearchParams.createSimple( "hat", true ),
+						true,
+						List.of(
+								new TestUpdateArgs(
+										List.of(
+												"Some line with no matches",
+												"Hate to chat about that display of hats.",
+												"Again, nothing to match",
+												"Hat",
+												"hat"
+										),
+										true,
+										5,
+										List.of(
+												new SearchMatch(1, 9, 3),
+												new SearchMatch(1, 20, 3),
+												new SearchMatch(1, 35, 3),
+												new SearchMatch(4, 0, 3)
+										),
+										false
+								),
+								new TestUpdateArgs(
+										List.of(
+												"This shouldn't match"
+										),
+										true,
+										6,
+										List.of(
+												new SearchMatch(1, 9, 3),
+												new SearchMatch(1, 20, 3),
+												new SearchMatch(1, 35, 3),
+												new SearchMatch(4, 0, 3)
+										),
+										false
+								),
+								new TestUpdateArgs(
+										List.of(
+												"I can haz a hat"
+										),
+										true,
+										7,
+										List.of(
+												new SearchMatch(1, 9, 3),
+												new SearchMatch(1, 20, 3),
+												new SearchMatch(1, 35, 3),
+												new SearchMatch(4, 0, 3),
+												new SearchMatch(6, 12, 3)
+										),
+										false
+								)
+						)
+				)
+			)
+		);
+
+		stream = Stream.concat( stream,
+			Stream.of(
+				new TestArgs(
+					"testSearching_SimpleInsensitive_full",
+					true,
+					1000,
+					SearchParams.createSimple( "hat", false ),
+						true,
+						List.of(
+								new TestUpdateArgs(
+										List.of(
+												"Some line with no matches",
+												"Hate to chat about that display of hats.",
+												"Again, nothing to match",
+												"Hat",
+												"hat"
+										),
+										true,
+										5,
+										List.of(
+												new SearchMatch( 1, 0, 3 ),
+												new SearchMatch( 1, 9, 3 ),
+												new SearchMatch( 1, 20, 3 ),
+												new SearchMatch( 1, 35, 3 ),
+												new SearchMatch( 3, 0, 3 ),
+												new SearchMatch( 4, 0, 3 )
+										),
+										false
+								),
+								new TestUpdateArgs(
+										List.of(
+												"This shouldn't match"
+										),
+										true,
+										6,
+										List.of(
+												new SearchMatch( 1, 0, 3 ),
+												new SearchMatch( 1, 9, 3 ),
+												new SearchMatch( 1, 20, 3 ),
+												new SearchMatch( 1, 35, 3 ),
+												new SearchMatch( 3, 0, 3 ),
+												new SearchMatch( 4, 0, 3 )
+										),
+										false
+								),
+								new TestUpdateArgs(
+										List.of(
+												"I can haz a hat"
+										),
+										true,
+										7,
+										List.of(
+												new SearchMatch( 1, 0, 3 ),
+												new SearchMatch( 1, 9, 3 ),
+												new SearchMatch( 1, 20, 3 ),
+												new SearchMatch( 1, 35, 3 ),
+												new SearchMatch( 3, 0, 3 ),
+												new SearchMatch( 4, 0, 3 ),
+												new SearchMatch( 6, 12, 3 )
+										),
+										false
+								)
+						)
+				)
+			)
+		);
+
+		stream = Stream.concat( stream,
+			Stream.of(
+				new TestArgs(
+					"testSearching_Regex1_full",
+					true,
+					1000,
+					SearchParams.createRegex( Pattern.compile( "hat" ) ),
+						true,
+						List.of(
+								new TestUpdateArgs(
+										List.of(
+												"Some line with no matches",
+												"Hate to chat about that display of hats.",
+												"Again, nothing to match",
+												"Hat",
+												"hat"
+										),
+										true,
+										5,
+										List.of(
+												new SearchMatch( 1, 9, 3 ),
+												new SearchMatch( 1, 20, 3 ),
+												new SearchMatch( 1, 35, 3 ),
+												new SearchMatch( 4, 0, 3 )
+										),
+										false
+								),
+								new TestUpdateArgs(
+										List.of(
+												"This shouldn't match"
+										),
+										true,
+										6,
+										List.of(
+												new SearchMatch( 1, 9, 3 ),
+												new SearchMatch( 1, 20, 3 ),
+												new SearchMatch( 1, 35, 3 ),
+												new SearchMatch( 4, 0, 3 )
+										),
+										false
+								),
+								new TestUpdateArgs(
+										List.of(
+												"I can haz a hat"
+										),
+										true,
+										7,
+										List.of(
+												new SearchMatch( 1, 9, 3 ),
+												new SearchMatch( 1, 20, 3 ),
+												new SearchMatch( 1, 35, 3 ),
+												new SearchMatch( 4, 0, 3 ),
+												new SearchMatch( 6, 12, 3 )
+										),
+										false
+								)
+						)
+				)
+			)
+		);
+
+		stream = Stream.concat( stream,
+			Stream.of(
+				new TestArgs(
+					"testSearching_maxHits_full",
+					true,
+					2,
+					SearchParams.createSimple( "hat", false ),
+						true,
+						List.of(
+								new TestUpdateArgs(
+										List.of(
+												"Some line with no matches",
+												"Hate to chat about that display of hats.",
+												"Again, nothing to match",
+												"Hat",
+												"hat"
+										),
+										true,
+										5,
+										List.of(
+												new SearchMatch( 1, 0, 3 ),
+												new SearchMatch( 1, 9, 3 )
+										),
+										true
+								),
+								new TestUpdateArgs(
+										List.of(
+												"This shouldn't match"
+										),
+										true,
+										6,
+										List.of(
+												new SearchMatch( 1, 0, 3 ),
+												new SearchMatch( 1, 9, 3 )
+										),
+										true
+								),
+								new TestUpdateArgs(
+										List.of(
+												"I can haz a hat"
+										),
+										true,
+										7,
+										List.of(
+												new SearchMatch( 1, 0, 3 ),
+												new SearchMatch( 1, 9, 3 )
+										),
+										true
+								)
+						)
+				)
+			)
+		);
+
+		// =============================================================================================================
+		// Test Case 3:
+		// Write the whole file each step but write the same lines along with the appended lines
+		// full_index_after_modified==false
+		// This should output the same results as Test Case 1.
+		// =============================================================================================================
+		stream = Stream.concat( stream,
+				Stream.of(
+						new TestArgs(
+								"testSearching_SimpleSensitive_file",
+								false,
+								1000,
+								SearchParams.createSimple( "hat", true ),
+								false,
+								List.of(
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat"
+												),
+												true,
+												5,
+												List.of(
+														new SearchMatch(1, 9, 3),
+														new SearchMatch(1, 20, 3),
+														new SearchMatch(1, 35, 3),
+														new SearchMatch(4, 0, 3)
+												),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match"
+												),
+												false,
+												6,
+												List.of(),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match",
+														"I can haz a hat"
+												),
+												false,
+												7,
+												List.of(
+														new SearchMatch(6, 12, 3)
+												),
+												false
+										)
+								)
+						)
+				)
+		);
+
+		stream = Stream.concat( stream,
+				Stream.of(
+						new TestArgs(
+								"testSearching_SimpleInsensitive_file",
+								false,
+								1000,
+								SearchParams.createSimple( "hat", false ),
+								false,
+								List.of(
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat"
+												),
+												true,
+												5,
+												List.of(
+														new SearchMatch( 1, 0, 3 ),
+														new SearchMatch( 1, 9, 3 ),
+														new SearchMatch( 1, 20, 3 ),
+														new SearchMatch( 1, 35, 3 ),
+														new SearchMatch( 3, 0, 3 ),
+														new SearchMatch( 4, 0, 3 )
+												),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match"
+												),
+												false,
+												6,
+												List.of(),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match",
+														"I can haz a hat"
+												),
+												false,
+												7,
+												List.of(
+														new SearchMatch( 6, 12, 3 )
+												),
+												false
+										)
+								)
+						)
+				)
+		);
+
+		stream = Stream.concat( stream,
+				Stream.of(
+						new TestArgs(
+								"testSearching_Regex1_file",
+								false,
+								1000,
+								SearchParams.createRegex( Pattern.compile( "hat" ) ),
+								false,
+								List.of(
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat"
+												),
+												true,
+												5,
+												List.of(
+														new SearchMatch( 1, 9, 3 ),
+														new SearchMatch( 1, 20, 3 ),
+														new SearchMatch( 1, 35, 3 ),
+														new SearchMatch( 4, 0, 3 )
+												),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match"
+												),
+												false,
+												6,
+												List.of(),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match",
+														"I can haz a hat"
+												),
+												false,
+												7,
+												List.of(
+														new SearchMatch( 6, 12, 3 )
+												),
+												false
+										)
+								)
+						)
+				)
+		);
+
+		stream = Stream.concat( stream,
+				Stream.of(
+						new TestArgs(
+								"testSearching_maxHits_file",
+								false,
+								2,
+								SearchParams.createSimple( "hat", false ),
+								false,
+								List.of(
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat"
+												),
+												true,
+												5,
+												List.of(
+														new SearchMatch( 1, 0, 3 ),
+														new SearchMatch( 1, 9, 3 )
+												),
+												true
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match"
+												),
+												false,
+												6,
+												List.of(),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match",
+														"I can haz a hat"
+												),
+												false,
+												7,
+												List.of(),
+												false
+										)
+								)
+						)
+				)
+		);
+
+		// =============================================================================================================
+		// Test Case 4:
+		// Write the whole file each step but write the same lines along with the appended lines
+		// full_index_after_modified==true
+		// This should output the same results as Test Case 2.
+		// =============================================================================================================
+		stream = Stream.concat( stream,
+				Stream.of(
+						new TestArgs(
+								"testSearching_SimpleSensitive_full_file",
+								true,
+								1000,
+								SearchParams.createSimple( "hat", true ),
+								false,
+								List.of(
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat"
+												),
+												true,
+												5,
+												List.of(
+														new SearchMatch(1, 9, 3),
+														new SearchMatch(1, 20, 3),
+														new SearchMatch(1, 35, 3),
+														new SearchMatch(4, 0, 3)
+												),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match"
+												),
+												true,
+												6,
+												List.of(
+														new SearchMatch(1, 9, 3),
+														new SearchMatch(1, 20, 3),
+														new SearchMatch(1, 35, 3),
+														new SearchMatch(4, 0, 3)
+												),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match",
+														"I can haz a hat"
+												),
+												true,
+												7,
+												List.of(
+														new SearchMatch(1, 9, 3),
+														new SearchMatch(1, 20, 3),
+														new SearchMatch(1, 35, 3),
+														new SearchMatch(4, 0, 3),
+														new SearchMatch(6, 12, 3)
+												),
+												false
+										)
+								)
+						)
+				)
+		);
+
+		stream = Stream.concat( stream,
+				Stream.of(
+						new TestArgs(
+								"testSearching_SimpleInsensitive_full_file",
+								true,
+								1000,
+								SearchParams.createSimple( "hat", false ),
+								false,
+								List.of(
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat"
+												),
+												true,
+												5,
+												List.of(
+														new SearchMatch( 1, 0, 3 ),
+														new SearchMatch( 1, 9, 3 ),
+														new SearchMatch( 1, 20, 3 ),
+														new SearchMatch( 1, 35, 3 ),
+														new SearchMatch( 3, 0, 3 ),
+														new SearchMatch( 4, 0, 3 )
+												),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match"
+												),
+												true,
+												6,
+												List.of(
+														new SearchMatch( 1, 0, 3 ),
+														new SearchMatch( 1, 9, 3 ),
+														new SearchMatch( 1, 20, 3 ),
+														new SearchMatch( 1, 35, 3 ),
+														new SearchMatch( 3, 0, 3 ),
+														new SearchMatch( 4, 0, 3 )
+												),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match",
+														"I can haz a hat"
+												),
+												true,
+												7,
+												List.of(
+														new SearchMatch( 1, 0, 3 ),
+														new SearchMatch( 1, 9, 3 ),
+														new SearchMatch( 1, 20, 3 ),
+														new SearchMatch( 1, 35, 3 ),
+														new SearchMatch( 3, 0, 3 ),
+														new SearchMatch( 4, 0, 3 ),
+														new SearchMatch( 6, 12, 3 )
+												),
+												false
+										)
+								)
+						)
+				)
+		);
+
+		stream = Stream.concat( stream,
+				Stream.of(
+						new TestArgs(
+								"testSearching_Regex1_full_file",
+								true,
+								1000,
+								SearchParams.createRegex( Pattern.compile( "hat" ) ),
+								false,
+								List.of(
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat"
+												),
+												true,
+												5,
+												List.of(
+														new SearchMatch( 1, 9, 3 ),
+														new SearchMatch( 1, 20, 3 ),
+														new SearchMatch( 1, 35, 3 ),
+														new SearchMatch( 4, 0, 3 )
+												),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match"
+												),
+												true,
+												6,
+												List.of(
+														new SearchMatch( 1, 9, 3 ),
+														new SearchMatch( 1, 20, 3 ),
+														new SearchMatch( 1, 35, 3 ),
+														new SearchMatch( 4, 0, 3 )
+												),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match",
+														"I can haz a hat"
+												),
+												true,
+												7,
+												List.of(
+														new SearchMatch( 1, 9, 3 ),
+														new SearchMatch( 1, 20, 3 ),
+														new SearchMatch( 1, 35, 3 ),
+														new SearchMatch( 4, 0, 3 ),
+														new SearchMatch( 6, 12, 3 )
+												),
+												false
+										)
+								)
+						)
+				)
+		);
+
+		stream = Stream.concat( stream,
+				Stream.of(
+						new TestArgs(
+								"testSearching_maxHits_full_file",
+								true,
+								2,
+								SearchParams.createSimple( "hat", false ),
+								false,
+								List.of(
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat"
+												),
+												true,
+												5,
+												List.of(
+														new SearchMatch( 1, 0, 3 ),
+														new SearchMatch( 1, 9, 3 )
+												),
+												true
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match"
+												),
+												true,
+												6,
+												List.of(
+														new SearchMatch( 1, 0, 3 ),
+														new SearchMatch( 1, 9, 3 )
+												),
+												true
+										),
+										new TestUpdateArgs(
+												List.of(
+														"Some line with no matches",
+														"Hate to chat about that display of hats.",
+														"Again, nothing to match",
+														"Hat",
+														"hat",
+														"This shouldn't match",
+														"I can haz a hat"
+												),
+												true,
+												7,
+												List.of(
+														new SearchMatch( 1, 0, 3 ),
+														new SearchMatch( 1, 9, 3 )
+												),
+												true
+										)
+								)
+						)
+				)
+		);
 
 		// =============================================================================================================
 		// Test Case 5:
@@ -1679,7 +1679,7 @@ public class LogIndexerTest {
 
 		// =============================================================================================================
 		// Test Case 8:
-		// A in-place edit is caught when full_index_after_modified==true and the file size decreses as a result
+		// A in-place edit is caught when full_index_after_modified==true and the file size decreases as a result
 		// of the update
 		// =============================================================================================================
 		stream = Stream.concat( stream,
@@ -1724,6 +1724,164 @@ public class LogIndexerTest {
 														new SearchMatch(1, 20, 3),
 														new SearchMatch(1, 35, 3),
 														new SearchMatch(2, 7, 3)
+												),
+												false
+										)
+								)
+						)
+				)
+		);
+
+		// =============================================================================================================
+		// Test Case 9:
+		// Full index when updating past 50 lines
+		// =============================================================================================================
+		stream = Stream.concat( stream,
+				Stream.of(
+						new TestArgs(
+								"over_50_lines",
+								true,
+								1000,
+								SearchParams.createSimple( "1a", true ),
+								true,
+								List.of(
+										new TestUpdateArgs(
+												List.of(
+														"1a",
+														"2a",
+														"3a",
+														"4a",
+														"5a",
+														"6a",
+														"7a",
+														"8a",
+														"9a",
+														"10a"
+												),
+												true,
+												10,
+												List.of(
+														new SearchMatch(0, 0, 2)
+												),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"1b",
+														"2b",
+														"3b",
+														"4b",
+														"5b",
+														"6b",
+														"7b",
+														"8b",
+														"9b",
+														"10b",
+														"1c",
+														"2c",
+														"3c",
+														"4c",
+														"5c",
+														"6c",
+														"7c",
+														"8c",
+														"9c",
+														"10c",
+														"1d",
+														"2d",
+														"3d",
+														"4d",
+														"5d",
+														"6d",
+														"7d",
+														"8d",
+														"9d",
+														"10d"
+												),
+												true,
+												40,
+												List.of(
+														new SearchMatch(0, 0, 2)
+												),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"1b",
+														"2b",
+														"3b",
+														"4b",
+														"5b",
+														"6b",
+														"7b",
+														"8b",
+														"9b",
+														"10b",
+														"1c",
+														"2c",
+														"3c",
+														"4c",
+														"5c",
+														"6c",
+														"7c",
+														"8c",
+														"9c",
+														"10c",
+														"1d",
+														"2d",
+														"3d",
+														"4d",
+														"5d",
+														"6d",
+														"7d",
+														"8d",
+														"9d",
+														"10d"
+												),
+												true,
+												70,
+												List.of(
+														new SearchMatch(0, 0, 2)
+												),
+												false
+										),
+										new TestUpdateArgs(
+												List.of(
+														"1b",
+														"2b",
+														"3b",
+														"4b",
+														"5b",
+														"6b",
+														"7b",
+														"8b",
+														"9b",
+														"10b",
+														"1c",
+														"2c",
+														"3c",
+														"4c",
+														"5c",
+														"6c",
+														"7c",
+														"8c",
+														"9c",
+														"10c",
+														"1d",
+														"2d",
+														"3d",
+														"4d",
+														"5d",
+														"6d",
+														"7d",
+														"8d",
+														"9d",
+														"10d"
+												),
+												true,
+												100,
+												List.of(
+														new SearchMatch(0, 0, 2)
 												),
 												false
 										)

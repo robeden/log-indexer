@@ -281,7 +281,6 @@ public class LogIndexer<A> implements LogAccess<A> {
 		try {
 			Searcher<?> searcher = searchers.remove(search_id);
 			if ( searcher != null ) {
-				searcher.halt();
 				searcher.close();
 			}
 		}

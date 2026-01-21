@@ -16,12 +16,12 @@ Download [the latest JAR][1] or grab via Maven:
 <dependency>
   <groupId>com.logicartisan</groupId>
   <artifactId>log-indexer</artifactId>
-  <version>1.2.0</version>
+  <version>1.3.0</version>
 </dependency>
 ```
 or Gradle:
 ```groovy
-compile 'com.logicartisan:log-indexer:1.2.0'
+compile 'com.logicartisan:log-indexer:1.3.0'
 ```
 
 
